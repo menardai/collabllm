@@ -119,11 +119,3 @@ def generate_text_hf(message: Union[str, List[dict]],
     else:
         return text
 
-
-# if __name__ == "__main__":
-#     message = "Hello, how are you today?"
-#     model = "meta-llama/Meta-Llama-3-8B-Instruct" # "meta-llama/Meta-Llama-3-70B-Instruct" 
-#     # "meta-llama/Meta-Llama-3-8B-Instruct" # "unsloth/llama-3-70b-bnb-4bit"
-#     # completion = generate_text_hf(message, model=model, max_new_tokens=16)
-#     # print(completion)
-#     completion = generate_text_hf("You are a helpful assistant. Given a conversation between a user and a chat assistant, summarize the chat assistant's final answer to the user's target question in 1-3 sentences. Follow the format and style provided in the examples below:\n**user**: I need help finding the equation of a plane that passes through two points and is perpendicular to another plane. \n**assistant**: Sure, I can help with that! To find the equation of a plane that passes through two points and is perpendicular to another plane, we need to follow these steps:1. **Understand and List Given Information:** - The coordinates of the two points.- The equation of the plane to which the new plane is perpendicular. Could you please provide: 1. The coordinates of the two points (let's call them \( A(x_1, y_1, z_1) \) and \( B(x_2, y_2, z_2) \)). 2. The equation of the plane to which the new plane should be perpendicular (in the form \( Ax + By + Cz + D = 0 \)). Once I have this information, I'll guide you through the calculation step-by-step! **assistant**: Great, we have all the information we need! The equation of the desired plane is: \[ x + y - z + 1 = 0 \]\nThe answerized answer should only be based on the given information. Provide the summary directly without additional comments.\nSummarized Answer: ", model="meta-llama/Meta-Llama-3-8B-Instruct" , max_new_tokens=1024, max_length=100, truncation=True)

@@ -1,0 +1,184 @@
+{
+  "builder_name": "parquet",
+  "citation": "",
+  "config_name": "default",
+  "dataset_name": "interactive-medium",
+  "dataset_size": 17401587,
+  "description": "",
+  "download_checksums": {
+    "anonymous": {
+      "num_bytes": 6365900,
+      "checksum": null
+    }
+  },
+  "download_size": 6365900,
+  "features": {
+    "idx": {
+      "dtype": "int64",
+      "_type": "Value"
+    },
+    "prompt": [
+      {
+        "content": {
+          "dtype": "string",
+          "_type": "Value"
+        },
+        "role": {
+          "dtype": "string",
+          "_type": "Value"
+        }
+      }
+    ],
+    "chosen": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "rejected": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "chosen_eval": {
+      "length_avg": {
+        "dtype": "float64",
+        "_type": "Value"
+      },
+      "llm_rw_avg": {
+        "dtype": "float64",
+        "_type": "Value"
+      },
+      "llm_rw_std": {
+        "dtype": "float64",
+        "_type": "Value"
+      },
+      "reward": {
+        "dtype": "float64",
+        "_type": "Value"
+      },
+      "reward_std": {
+        "dtype": "float64",
+        "_type": "Value"
+      },
+      "rs": {
+        "0": {
+          "average_score": {
+            "dtype": "int64",
+            "_type": "Value"
+          }
+        },
+        "1": {
+          "average_score": {
+            "dtype": "int64",
+            "_type": "Value"
+          }
+        },
+        "2": {
+          "average_score": {
+            "dtype": "int64",
+            "_type": "Value"
+          }
+        }
+      },
+      "task_metric_avg": {
+        "dtype": "float64",
+        "_type": "Value"
+      },
+      "task_metric_std": {
+        "dtype": "float64",
+        "_type": "Value"
+      },
+      "token_cost_avg": {
+        "dtype": "float64",
+        "_type": "Value"
+      },
+      "token_cost_std": {
+        "dtype": "float64",
+        "_type": "Value"
+      }
+    },
+    "rejected_eval": {
+      "length_avg": {
+        "dtype": "float64",
+        "_type": "Value"
+      },
+      "llm_rw_avg": {
+        "dtype": "float64",
+        "_type": "Value"
+      },
+      "llm_rw_std": {
+        "dtype": "float64",
+        "_type": "Value"
+      },
+      "reward": {
+        "dtype": "float64",
+        "_type": "Value"
+      },
+      "reward_std": {
+        "dtype": "float64",
+        "_type": "Value"
+      },
+      "rs": {
+        "0": {
+          "average_score": {
+            "dtype": "int64",
+            "_type": "Value"
+          }
+        },
+        "1": {
+          "average_score": {
+            "dtype": "int64",
+            "_type": "Value"
+          }
+        },
+        "2": {
+          "average_score": {
+            "dtype": "int64",
+            "_type": "Value"
+          }
+        }
+      },
+      "task_metric_avg": {
+        "dtype": "float64",
+        "_type": "Value"
+      },
+      "task_metric_std": {
+        "dtype": "float64",
+        "_type": "Value"
+      },
+      "token_cost_avg": {
+        "dtype": "float64",
+        "_type": "Value"
+      },
+      "token_cost_std": {
+        "dtype": "float64",
+        "_type": "Value"
+      }
+    },
+    "metadata": {
+      "assistant": {
+        "dtype": "string",
+        "_type": "Value"
+      },
+      "user": {
+        "dtype": "string",
+        "_type": "Value"
+      }
+    }
+  },
+  "homepage": "",
+  "license": "",
+  "size_in_bytes": 23767487,
+  "splits": {
+    "train": {
+      "name": "train",
+      "num_bytes": 17401587,
+      "num_examples": 2303,
+      "dataset_name": "interactive-medium"
+    }
+  },
+  "version": {
+    "version_str": "0.0.0",
+    "major": 0,
+    "minor": 0,
+    "patch": 0
+  }
+}

@@ -66,7 +66,7 @@ if __name__ == "__main__":
     parser.add_argument("--proact_prompt_ratio", type=float, default=0.5, help="0 for none, 1 for proact, 0~1 for mixed.")
     parser.add_argument("--add_system_prompt_ratio", type=float, default=0, help="0 for none, 1 for proact, 0~1 for mixed.")
     parser.add_argument("--num_candidate_responses", type=int, default=2, help="Number of assistant candidates per turn.")
-    parser.add_argument("--max_total_turns", type=int, default=10, help="Maximum number of conversation turns.")
+    parser.add_argument("--max_total_turns", type=int, default=14, help="Maximum number of conversation turns.")
     parser.add_argument("--max_new_turns", type=int, default=4, help="Window size for context in multi-turn generation.")
     parser.add_argument("--num_samples", type=int, default=3, help="Sample size for generating multiple conversations in one batch.")
     parser.add_argument("--conv_size", type=int, default=500, help="Number of conversations to generate.")
@@ -83,4 +83,4 @@ if __name__ == "__main__":
     print(args)
     main(args)
 
-    # python -m scripts.generate_reward_guided_multiturn_conv   --dataset_name math-hard   --metric_names "accuracy" "interactivity" "token_amount"   --metric_weights 1 1 -0.1   --user_generation_kwargs '{"model": "gpt-4o-mini"}'   --assistant_generation_kwargs '{"model": "gpt-4o", "temperature": 1}'   --output_dir outputs/multiturn_conv   --hf_entity collabllm --reward_generation_kwargs '{"model": "claude-3-5-sonnet-latest"}'
+    # python -m scripts.generate_reward_guided_multiturn_conv   --dataset_name math-hard   --metric_names "accuracy" "interactivity" "token_amount"   --metric_weights 1 1 -0.5   --user_generation_kwargs '{"model": "gpt-4o-mini"}'   --assistant_generation_kwargs '{"model": "gpt-4o", "temperature": 0.6}'   --output_dir outputs/multiturn_conv   --hf_entity collabllm --reward_generation_kwargs '{"model": "claude-3-5-sonnet-latest"}'

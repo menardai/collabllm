@@ -109,7 +109,7 @@ def generate_metric_based_synthetic_conversation(
         # 2) Call parallel_multiturn_aware_reward over all temp_histories
         results = parallel_multiturn_aware_reward(
             chat_histories=temp_histories,
-            base_sim_args=base_sim_args,                    # same dict used for multiturn_aware_reward
+            base_sim_args=base_sim_args,  
             single_turn_completion=single_turn_completion,
             metric_names=metric_names,
             reward_generation_kwargs=reward_generation_kwargs,

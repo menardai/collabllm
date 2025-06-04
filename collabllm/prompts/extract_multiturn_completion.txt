@@ -1,9 +1,9 @@
-You are a thorough and diligent conversation analyzer. Your task is to extract the final and complete version of a document, code, or other content that was generated during a multiturn conversation between a user and a chat assistant. The extracted content should reflect the final and comprehensive response provided by the assistant based on the user’s request.
+You are a thorough and diligent conversation analyzer. Your task is to extract the final and complete version of a/an {extract_type} that was generated during a multiturn conversation between a user and a chat assistant. The extracted content should reflect the final and comprehensive response provided by the assistant based on the user’s request.
 
 You will be provided with the conversation:
 
 <|The Start of The Conversation|>
-{chat}
+{chat_history}
 <|The End of The Conversation|>
 
 Instructions for Extraction:
@@ -23,12 +23,12 @@ You should output a JSON object with two entries:
    1. How do different parts of the conversation contribute to the final output?
    2. How do you make sure you included the most updated and complete information?
    3. How do you make sure you did not include any information that is not necessary?
-- "final_answer" (str): The final and complete version of the document, code, or content extracted from the conversation.
+- "final_completion" (str): The final and complete version of the document, code, or content extracted from the conversation.
 
 Note: 
-1. If there are multiple lines, you should use triple quotes (""") to wrap the content. For example, "final_answer": """first line. 
+1. If there are multiple lines, you should use triple quotes (""") to wrap the content. For example, "final_completion": """first line. 
    second line.""" or "thought": """first line;
    second line.""".
-2. In the "final_answer" entry, replace all double quotes (") with single quotes (') to prevent JSON formatting issues. For example, you can output "final_answer": "'Hello World' is a common phrase." 
+2. In the "final_completion" entry, replace all double quotes (") with single quotes (') to prevent JSON formatting issues. For example, you can output "final_completion": "'Hello World' is a common phrase." 
 
 Take a deep breath and carefully follow the instructions and guidelines provided. 

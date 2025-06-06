@@ -3,12 +3,12 @@ from typing import List, Dict, Any
 import random
 
 
-class SingTurnDataset:
+class SingleTurnDataset:
     """A dataset wrapper for single-turn chat data with HuggingFace integration."""
     
     def __init__(self, data: List[Dict[str, Any]], eval_ratio: float = 0.1, seed: int = 42):
         """
-        Initializes the SingTurnDataset with chat data.
+        Initializes the SingleTurnDataset with chat data.
 
         Args:
             data: A list of dictionaries, each representing a single chat turn.
@@ -138,83 +138,3 @@ class SingTurnDataset:
                 'eval': eval_size
             }
 
-
-if __name__ == "__main__":
-    """
-    Example usage of SingTurnDataset
-    --------------------------------
-
-    Demonstrates:
-    1. Creating a list of single-turn chat entries.
-    2. Wrapping it with SingTurnDataset.
-    3. Converting to a HuggingFace DatasetDict.
-    4. Inspecting splits and sample entries.
-    """
-
-    from pprint import pprint
-    from datasets import DatasetDict
-
-    # ------------------------------------------------------ #
-    # 1) Prepare some toy single-turn data                   #
-    # ------------------------------------------------------ #
-    toy_data = [
-        {
-            "prompt": "What is the capital of France?",
-            "completion": "Paris.",
-            "difficulty": "easy",
-        },
-        {
-            "prompt": "Compute 15 * 7.",
-            "completion": "105.",
-            "difficulty": "easy",
-        },
-        {
-            "prompt": "Explain the theory of relativity in brief.",
-            "completion": "It’s a theory by Einstein explaining how space and time are linked and how massive objects curve spacetime. In short, E=mc².",
-            "difficulty": "hard",
-        },
-        {
-            "prompt": "Who wrote 'Pride and Prejudice'?",
-            "completion": "Jane Austen.",
-            "difficulty": "medium",
-        },
-        {
-            "prompt": "Translate 'Hello' to Spanish.",
-            "completion": "Hola.",
-            "difficulty": "easy",
-        },
-    ]
-
-    # ------------------------------------------------------ #
-    # 2) Initialize SingTurnDataset                          #
-    # ------------------------------------------------------ #
-    dataset = SingTurnDataset(toy_data, eval_ratio=0.2, seed=123)
-
-    # ------------------------------------------------------ #
-    # 3) Convert to HuggingFace DatasetDict                  #
-    # ------------------------------------------------------ #
-    hf_datasets: DatasetDict = dataset.to_hf_dataset()
-    print("Dataset splits:", hf_datasets)
-    
-    # ------------------------------------------------------ #
-    # 4) Inspect split sizes                                #
-    # ------------------------------------------------------ #
-    splits_info = dataset.get_splits_info()
-    print("Split info:", splits_info)
-
-    # ------------------------------------------------------ #
-    # 5) Peek at one example from each split                 #
-    # ------------------------------------------------------ #
-    for split_name, split_ds in hf_datasets.items():
-        print(f"\n--- {split_name.upper()} split ---")
-        # Each row has: single_turn_prompt, single_turn_completion, metadata
-        row0 = split_ds[0]
-        pprint(row0)
-
-    # ------------------------------------------------------ #
-    # 6) Accessing entries via __getitem__                   #
-    # ------------------------------------------------------ #
-    print("\nFirst entry via __getitem__:")
-    print(dataset[0])
-
-    print("\nTotal entries:", len(dataset))

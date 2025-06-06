@@ -6,12 +6,12 @@ import random
 from typing import List, Dict, Any
 
 from datasets import load_dataset
-from collabllm.datasets.single_turn import SingTurnDataset
+from collabllm.datasets.single_turn import SingleTurnDataset
 
 
-class BigCodeBench(SingTurnDataset):
+class BigCodeBench(SingleTurnDataset):
     """
-    BigCodeBench ➟ SingTurnDataset adaptor.
+    BigCodeBench ➟ SingleTurnDataset adaptor.
 
     * Every row exposes the coding prompt as **`prompt`** and a JSON-string
       with ground-truth fields as **`completion`**.
@@ -42,7 +42,7 @@ class BigCodeBench(SingTurnDataset):
     # ------------------------------------------------------------------ #
     def _preprocess(self, raw_ds) -> List[Dict[str, Any]]:
         """
-        Build the flat dict format required by `SingTurnDataset`.
+        Build the flat dict format required by `SingleTurnDataset`.
 
         Each output item has at least:
             • prompt

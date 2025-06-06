@@ -5,11 +5,27 @@ Preparation: To run the following, you need to generate multiturn data from `scr
 DPO train a causal-LM + LoRA adapter on a multi-turn dataset.
 Example
 -------
-DATASET=collabllm-multiturn-math-hard
 CUDA_VISIBLE_DEVICES=1,2,3,4 WANDB__SERVICE_WAIT=300 torchrun --master_port=56500 --nnodes=1 --nproc_per_node=4 -m scripts.offline_dpo \
-    --dataset_repo collabllm/$DATASET \
-    --model_name outputs/sft/$DATASET \
-    --output_dir outputs/dpo/$DATASET \
+    --dataset_repo collabllm/collabllm-multiturn-math-hard \
+    --model_name outputs/sft/collabllm-multiturn-math-hard \
+    --output_dir outputs/offline_dpo/collabllm-multiturn-math-hard \
+    --per_device_train_batch_size 2 \
+    --per_device_eval_batch_size 2 \
+    --gradient_accumulation_steps 8 \
+    --save_total_limit 10 \
+    --num_train_epochs 8 \
+    --learning_rate 5e-6 \
+    --eval_steps 1 \
+    --logging_steps 1 \
+    --wandb_entity dsp-team \
+    --wandb_project collabllm \
+    --use_4bit
+
+MULTITURN_DATASET=collabllm-multiturn-medium
+CUDA_VISIBLE_DEVICES=1,2,3,4 WANDB__SERVICE_WAIT=300 torchrun --master_port=56500 --nnodes=1 --nproc_per_node=4 -m scripts.offline_dpo \
+    --dataset_repo collabllm/$MULTITURN_DATASET \
+    --model_name outputs/sft/$MULTITURN_DATASET \
+    --output_dir outputs/offline_dpo/$MULTITURN_DATASET \
     --per_device_train_batch_size 2 \
     --per_device_eval_batch_size 2 \
     --gradient_accumulation_steps 8 \
@@ -226,7 +242,7 @@ def main() -> None:
         wandb.init(
             project=args.wandb_project,
             entity=args.wandb_entity,
-            name=os.path.basename(args.output_dir),
+            name=args.output_dir.replace("/", "_"),
             config=train_args.to_dict(),
             save_code=True,
             job_type="train",
@@ -258,7 +274,7 @@ def main() -> None:
     tok.save_pretrained(args.output_dir)
 
     if args.push_to_hub and args.hf_org:
-        repo = f"dpo-{args.dataset_repo.replace('/', '_')}"
+        repo = f"offline_dpo-{args.dataset_repo.replace('/', '_')}"
         trainer.model.push_to_hub(f"{args.hf_org}/{repo}", private=True)
         tok.push_to_hub(f"{args.hf_org}/{repo}", private=True)
 

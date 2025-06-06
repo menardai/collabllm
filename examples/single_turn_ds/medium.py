@@ -10,7 +10,7 @@ import tiktoken
 from datasets import load_dataset
 from tqdm import tqdm
 
-from collabllm.datasets.single_turn import SingTurnDataset
+from collabllm.datasets.single_turn import SingleTurnDataset
 
 
 def num_tokens_from_string(string: str, encoding_name: str = "cl100k_base") -> int:
@@ -20,9 +20,9 @@ def num_tokens_from_string(string: str, encoding_name: str = "cl100k_base") -> i
     return num_tokens
     
 
-class Medium(SingTurnDataset):
+class Medium(SingleTurnDataset):
     """
-    Medium-Articles → SingTurnDataset adaptor.
+    Medium-Articles → SingleTurnDataset adaptor.
 
     • Keeps only articles ≤ `max_tokens` tokens.  
     • Creates fresh train / test splits from the most recent articles

@@ -5,12 +5,12 @@ import json
 import os.path as osp
 from typing import List, Dict, Any
 
-from collabllm.datasets.single_turn import SingTurnDataset
+from collabllm.datasets.single_turn import SingleTurnDataset
 
 
-class AbgCoQA(SingTurnDataset):
+class AbgCoQA(SingleTurnDataset):
     """
-    Abg-CoQA → SingTurnDataset adaptor.
+    Abg-CoQA → SingleTurnDataset adaptor.
 
     * Task: binary classification — **ambiguous** vs **non_ambiguous**.
     * Each example exposes
@@ -77,7 +77,7 @@ class AbgCoQA(SingTurnDataset):
                 # --- package example ------------------------------------------------ #
                 examples.append(
                     {
-                        # required keys for SingTurnDataset
+                        # required keys for SingleTurnDataset
                         "prompt": prompt_text,
                         "completion": label,
                         "split": split_name,

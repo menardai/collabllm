@@ -216,7 +216,7 @@ def main() -> None:
         wandb.init(
             project=args.wandb_project,
             entity=args.wandb_entity,
-            name=os.path.basename(args.output_dir),
+            name=args.output_dir.replace("/", "_"),
             config=train_cfg.to_dict(),
             save_code=True,
             job_type="train",

@@ -66,6 +66,9 @@ _REQUIRED: set[str] = {
     "single_turn_metadata",
 }
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 # --------------------------------------------------------------------------- #
 # uniform splitter                                                            #
@@ -257,7 +260,7 @@ class MultiturnDataset:
         self,
         *,
         n_eval: Optional[int] = None,
-        eval_ratio: Optional[float] = None
+        eval_ratio: Optional[float] = 0.0
     ) -> DatasetDict:
 
         # Pick the best (largest turn_id, then highest score) per conv_id
@@ -284,7 +287,7 @@ class MultiturnDataset:
         *,
         minimum_gap: float = 0.0,
         n_eval: Optional[int] = None,
-        eval_ratio: Optional[float] = None,
+        eval_ratio: Optional[float] = 0.0,
     ) -> DatasetDict:
 
         # Group rows by (conv_id, turn_id)
@@ -309,6 +312,8 @@ class MultiturnDataset:
                 }
             )
 
+        logger.info(f"Converted {len(pairs)} pairs (minimum_gap={minimum_gap}, ratio={len(pairs)/len(self.data):.2f})")
+
         if not pairs:
             return DatasetDict({"train": Dataset.from_dict({}), "eval": Dataset.from_dict({})})
 
@@ -322,7 +327,7 @@ class MultiturnDataset:
         self,
         *,
         n_eval: Optional[int] = None,
-        eval_ratio: Optional[float] = None,
+        eval_ratio: Optional[float] = 0.0,
     ) -> DatasetDict:
 
         # Keep exactly one row per (conv_id, turn_id)
@@ -355,190 +360,3 @@ class MultiturnDataset:
     def __getitem__(self, idx: int):
         return self.data[idx]
 
-
-
-if __name__ == "__main__":
-    """
-    Quick sanity-check for MultiturnDataset
-    ---------------------------------------
-
-    Creates a tiny in-memory corpus, runs each conversion method, and shows
-    basic properties so you can visually confirm everything works.
-    """
-
-    from pprint import pprint
-    from datasets import Dataset, DatasetDict
-
-    # ------------------------------------------------------ #
-    # 1) Toy corpus: three conversations, four rows total    #
-    # ------------------------------------------------------ #
-    toy_data = [
-        {  # convo A, assistant turn 1
-            "prompt": [
-                {"role": "user", "content": "Hi – tell me a joke."},
-            ],
-            "completion": "Why did the chicken cross the road? To get to the other side!",
-            "conv_id": 1,
-            "score": 0.7,
-            "single_turn_prompt": "Tell me a joke.",
-            "single_turn_completion": "Why did the chicken cross the road?",
-            "single_turn_metadata": {"topic": "jokes"},
-        },
-        {  # convo A, *same* turn, alternative completion (lower score)
-            "prompt": [
-                {"role": "user", "content": "Hi – tell me a joke."},
-            ],
-            "completion": "I don't know any jokes.",
-            "conv_id": 1,
-            "score": 0.1,
-            "single_turn_prompt": "Tell me a joke.",
-            "single_turn_completion": "I don't know any jokes.",
-            "single_turn_metadata": {"topic": "jokes"},
-        },
-        {  # convo A, *same* turn, alternative completion (lower score)
-            "prompt": [
-                {"role": "user", "content": "Hi – tell me a joke."},
-                {"role": "assistant", "content": "Why did the chicken cross the road? To get to the other side!"},
-                {"role": "user", "content": "And another one?"},
-            ],
-            "completion": "What do you call a bear with no teeth? A gummy bear!",
-            "conv_id": 1,
-            "score": 0.8,
-            "single_turn_prompt": "Tell me a joke.",
-            "single_turn_completion": "I don't know any jokes.",
-            "single_turn_metadata": {"topic": "jokes"},
-        },
-        {  # convo A, *same* turn, alternative completion (lower score)
-            "prompt": [
-                {"role": "user", "content": "Hi – tell me a joke."},
-                {"role": "assistant", "content": "Why did the chicken cross the road? To get to the other side!"},
-                {"role": "user", "content": "And another one?"},
-            ],
-            "completion": "I don't know any jokes.",
-            "conv_id": 1,
-            "score": 0.1,
-            "single_turn_prompt": "Tell me a joke.",
-            "single_turn_completion": "I don't know any jokes.",
-            "single_turn_metadata": {"topic": "jokes"},
-        },
-        {  # convo B, assistant turn 2
-            "prompt": [
-                {"role": "user", "content": "Sum 2+2"},
-                {"role": "assistant", "content": "4"},
-                {"role": "user", "content": "And 3+3?"},
-            ],
-            "completion": "6",
-            "conv_id": 2,
-            "score": 0.9,
-            "single_turn_prompt": "What is 3+3?",
-            "single_turn_completion": "6",
-            "single_turn_metadata": {"topic": "math"},
-        },
-        {  # convo C, single message
-            "prompt": [{"role": "user", "content": "Quote Shakespeare"}],
-            "completion": "To be, or not to be.",
-            "conv_id": 2,
-            "score": 0.5,
-            "single_turn_prompt": "Quote Shakespeare",
-            "single_turn_completion": "To be, or not to be.",
-            "single_turn_metadata": {"topic": "literature"},
-        },
-    ]
-
-    ds = MultiturnDataset(toy_data, eval_ratio=0.2, seed=42)
-
-    # ------------------------------------------------------ #
-    # 2) SFT                                                 #
-    # ------------------------------------------------------ #
-    sft = ds.to_sft_dataset()
-    print("\nSFT:")
-    print(sft)
-    pprint(sft["train"][0])
-
-    # ------------------------------------------------------ #
-    # 3) DPO (gap filter 0.2)                                #
-    # ------------------------------------------------------ #
-    dpo = ds.to_dpo_dataset(minimum_gap=0.2)
-    print("\nDPO:")
-    print(dpo)
-    if len(dpo["train"]) > 0:
-        pprint(dpo["train"][0])
-
-    # ------------------------------------------------------ #
-    # 4) Inputs                                              #
-    # ------------------------------------------------------ #
-    inputs = ds.to_inputs_dataset()
-    print("\nInputs:")
-    print(inputs)
-    pprint(inputs["train"][0])
-
-    # nested
-    """
-    Example usage for the updated MultiturnDataset class.
-    """
-
-    from pprint import pprint
-
-    from datasets import DatasetDict
-    from collabllm.datasets.multiturn import MultiturnDataset
-
-    # ------------------------------------------------------ #
-    # 1) Example with nested input format                    #
-    # ------------------------------------------------------ #
-    nested_data = [
-        {
-            "single_turn_prompt": "Tell me a joke.",
-            "single_turn_completion": "Why did the chicken cross the road?",
-            "single_turn_metadata": {"category": "humor"},
-            "turns": [
-                {
-                    "prompt": [{"role": "user", "content": "Hi, tell me a joke."}],
-                    "responses": [
-                        {"completion": "Why did the chicken cross the road? To get to the other side!", "score": 0.7},
-                        {"completion": "I don’t know any jokes.", "score": 0.2},
-                    ],
-                },
-                {
-                    "prompt": [
-                        {"role": "user", "content": "Another one?"},
-                        {"role": "assistant", "content": "Why did the chicken cross the road? To get to the other side!"},
-                        {"role": "user", "content": "Yes, another."},
-                    ],
-                    "responses": [
-                        {"completion": "What do you call a bear with no teeth? A gummy bear!", "score": 0.8},
-                    ],
-                },
-            ],
-        },
-        {
-            "single_turn_prompt": "Sum 2+2.",
-            "single_turn_completion": "2+2=4",
-            "single_turn_metadata": {"category": "math"},
-            "turns": [
-                {
-                    "prompt": [{"role": "user", "content": "Sum 2+2"}],
-                    "responses": [
-                        {"completion": "4", "score": 0.9},
-                    ],
-                }
-            ],
-        },
-    ]
-
-    ds_nested = MultiturnDataset(nested_data, eval_ratio=0.5, seed=123)
-
-    print("=== SFT from nested data ===")
-    sft_ds: DatasetDict = ds_nested.to_sft_dataset()
-    print(sft_ds)
-    pprint(sft_ds["train"][0])  # one example from train split
-
-    print("\n=== DPO from nested data ===")
-    dpo_ds: DatasetDict = ds_nested.to_dpo_dataset(minimum_gap=0.3)
-    print(dpo_ds)
-    if len(dpo_ds["train"]) > 0:
-        pprint(dpo_ds["train"][0])
-
-    print("\n=== Inputs from nested data ===")
-    inputs_ds: DatasetDict = ds_nested.to_inputs_dataset()
-    print(inputs_ds)
-    pprint(inputs_ds["train"][0])

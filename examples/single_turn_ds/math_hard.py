@@ -4,18 +4,18 @@ from __future__ import annotations
 from typing import Dict, List, Any
 
 from datasets import load_dataset
-from collabllm.datasets.single_turn import SingTurnDataset
+from collabllm.datasets.single_turn import SingleTurnDataset
 
 
-class MATH(SingTurnDataset):
+class MATH(SingleTurnDataset):
     """
-    MATH-Hard ➟ SingTurnDataset adaptor.
+    MATH-Hard ➟ SingleTurnDataset adaptor.
 
     Each row produced by `_preprocess` has at minimum:
         • prompt      - the math problem
         • completion  - the reference solution
         • split       - "train" / "test" / "dev" (propagated from HF dataset)
-    Plus extra metadata fields (`level`, `type`, …) that SingTurnDataset
+    Plus extra metadata fields (`level`, `type`, …) that SingleTurnDataset
     will automatically place inside the `metadata` column.
     """
 
@@ -37,7 +37,7 @@ class MATH(SingTurnDataset):
     def _preprocess(raw_ds) -> List[Dict[str, Any]]:
         """
         Convert the original HF splits into the flat dict format expected
-        by `SingTurnDataset`.
+        by `SingleTurnDataset`.
 
         Returns
         -------
@@ -54,7 +54,7 @@ class MATH(SingTurnDataset):
                         # required columns
                         "prompt": row["problem"],
                         "completion": row["solution"],
-                        # optional / metadata (SingTurnDataset will group them)
+                        # optional / metadata (SingleTurnDataset will group them)
                         "split": split_name,
                         "level": row.get("level"),
                         "type": row.get("type"),

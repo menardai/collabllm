@@ -13,6 +13,16 @@ Example Usage:
         --reward_generation_kwargs '{"model": "claude-3-5-sonnet-latest"}' \
         --output_dir outputs/multiturn_conv \
         --hf_entity collabllm
+
+    python -m scripts.generate_reward_guided_multiturn_conv \
+        --dataset_name medium \
+        --metric_names "document->bleu" "interactivity" "token_amount" \
+        --metric_weights 1 1 -0.1 \
+        --user_generation_kwargs '{"model": "gpt-4.1-mini"}' \
+        --assistant_generation_kwargs '{"model": "gpt-4o", "temperature": 0.8}' \
+        --reward_generation_kwargs '{"model": "claude-3-5-sonnet-latest"}' \
+        --output_dir outputs/multiturn_conv \
+        --hf_entity collabllm
 """
 
 import argparse
@@ -30,6 +40,7 @@ from collabllm.datasets.multiturn import MultiturnDataset
 from collabllm.synthetic import generate_metric_based_synthetic_conversation
 from examples.single_turn_ds import datasets_info
 from examples.metrics import *
+
 
 def compute_hash(text: str) -> str:
     return hashlib.md5(text.encode("utf-8")).hexdigest()

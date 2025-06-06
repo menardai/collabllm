@@ -1,57 +1,139 @@
-import argparse
-import json
-import os.path as osp
-from typing import List, Dict, Any, Optional
-from tqdm import tqdm
-from dotenv import load_dotenv
+"""
+To run the following, you need:
+    - A dataset implemented under `examples/single_turn_ds`
+    - (Optional) Any custom metrics implemented under `examples/metrics`
 
-from examples.single_turn_ds import datasets_info
+Example Usage:
+    python -m scripts.generate_reward_guided_multiturn_conv \
+        --dataset_name math-hard \
+        --metric_names "accuracy" "interactivity" "token_amount" \
+        --metric_weights 1 1 -0.5 \
+        --user_generation_kwargs '{"model": "gpt-4o-mini"}' \
+        --assistant_generation_kwargs '{"model": "gpt-4o", "temperature": 0.6}' \
+        --reward_generation_kwargs '{"model": "claude-3-5-sonnet-latest"}' \
+        --output_dir outputs/multiturn_conv \
+        --hf_entity collabllm
+"""
+
+import argparse
+import hashlib
+import json
+import os
+import os.path as osp
+from tqdm import tqdm
+from typing import List, Dict, Any
+from dotenv import load_dotenv
+import warnings
+import concurrent.futures
+
 from collabllm.datasets.multiturn import MultiturnDataset
 from collabllm.synthetic import generate_metric_based_synthetic_conversation
+from examples.single_turn_ds import datasets_info
 from examples.metrics import *
+
+def compute_hash(text: str) -> str:
+    return hashlib.md5(text.encode("utf-8")).hexdigest()
 
 
 def main(args):
-    # Load single-turn dataset
-    dataset_class = datasets_info[args.dataset_name]['class']
-    task_description = datasets_info[args.dataset_name]['task_description']
-    dataset = dataset_class().to_hf_dataset()
+    dataset_cls = datasets_info[args.dataset_name]["class"]
+    task_desc = datasets_info[args.dataset_name]["task_desc"]
+    dataset = dataset_cls().to_hf_dataset()
+    train = (
+        dataset["train"].select(range(args.conv_size))
+        if args.conv_size > 0
+        else dataset["train"]
+    )
 
-    multiturn_data_lst = []
-    trainset = dataset['train'].select(range(args.conv_size)) if args.conv_size > 0 else dataset['train']
+    os.makedirs(args.output_dir, exist_ok=True)
+    output_path = osp.join(args.output_dir, f"{args.dataset_name}_multiturn.json")
 
-    for example in tqdm(trainset, desc="Generating multi-turn conversations"):
-        multiturn_data = generate_metric_based_synthetic_conversation(
-            task_description=task_description,
-            single_turn_prompt=example['single_turn_prompt'],
-            single_turn_completion=example['single_turn_completion'],
-            single_turn_metadata=example['single_turn_metadata'],
-            metric_names=args.metric_names,
-            user_generation_kwargs=args.user_generation_kwargs,
-            assistant_generation_kwargs=args.assistant_generation_kwargs,
-            reward_generation_kwargs=args.reward_generation_kwargs,
-            metric_weights=args.metric_weights,
-            proact_prompt_ratio=args.proact_prompt_ratio,
-            num_candidate_responses=args.num_candidate_responses,
-            max_total_turns=args.max_total_turns,
-            max_new_turns=args.max_new_turns,
-            num_samples=args.num_samples,
-            max_workers=args.max_workers,
-            max_metric_workers=args.max_metric_workers,
-            add_system_prompt_ratio=args.add_system_prompt_ratio
-        )
-        multiturn_data_lst.append(multiturn_data)
+    data_list: List[Dict[str, Any]] = []
+    seen_prompt_hashes = set()
 
-        # Save results to JSON
-        os.makedirs(args.output_dir, exist_ok=True)
-        output_path = osp.join(args.output_dir, f"{args.dataset_name}_multiturn.json")
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(multiturn_data_lst, f, indent=2)
+    if osp.exists(output_path):
+        if args.resume:
+            with open(output_path, "r", encoding="utf-8") as f:
+                data_list = json.load(f)
+            seen_prompt_hashes = {
+                compute_hash(ex["single_turn_prompt"]) for ex in data_list
+            }
+        else:
+            warnings.warn(
+                "Output file already exists. Use --resume to continue from the last saved state.",
+                UserWarning,
+            )
+            return
 
-        # Push to Hugging Face Hub
-        MultiturnDataset(multiturn_data_lst).push_to_hub(
-            repo_id=f"{args.hf_entity}/collabllm-multiturn-{args.dataset_name}"
-        )
+    # Filter out examples whose prompt‐hash is already in seen_prompt_hashes
+    pending_examples = [
+        ex
+        for ex in train
+        if compute_hash(ex["single_turn_prompt"]) not in seen_prompt_hashes
+    ]
+
+    if not pending_examples:
+        print("No new examples to generate (all seen).")
+        return
+
+    # Create a ThreadPoolExecutor with max_gen_workers threads
+    with concurrent.futures.ThreadPoolExecutor(max_workers=args.max_gen_workers) as executor:
+        future_to_hash = {}
+        for example in pending_examples:
+            prompt_hash = compute_hash(example["single_turn_prompt"])
+
+            # Submit generate_metric_based_synthetic_conversation using kwargs
+            future = executor.submit(
+                generate_metric_based_synthetic_conversation,
+                task_desc=task_desc,
+                single_turn_prompt=example["single_turn_prompt"],
+                single_turn_completion=example["single_turn_completion"],
+                single_turn_metadata=example["single_turn_metadata"],
+                metric_names=args.metric_names,
+                user_generation_kwargs=args.user_generation_kwargs,
+                assistant_generation_kwargs=args.assistant_generation_kwargs,
+                reward_generation_kwargs=args.reward_generation_kwargs,
+                metric_weights=args.metric_weights,
+                proact_prompt_ratio=args.proact_prompt_ratio,
+                num_candidate_responses=args.num_candidate_responses,
+                max_total_turns=args.max_total_turns,
+                max_new_turns=args.max_new_turns,
+                num_samples=args.num_samples,
+                max_workers=min(args.num_samples, 4),
+                max_metric_workers=args.max_metric_workers,
+                add_system_prompt_ratio=args.add_system_prompt_ratio,
+            )
+
+            future_to_hash[future] = prompt_hash
+
+        # Use tqdm to show progress as each future completes
+        for future in tqdm(
+            concurrent.futures.as_completed(future_to_hash),
+            total=len(future_to_hash),
+            desc="Generating multi-turn conversations",
+        ):
+            prompt_hash = future_to_hash[future]
+            try:
+                multiturn_data = future.result()
+            except Exception as e:
+                print(f"Error generating for prompt {prompt_hash}: {e}")
+                continue
+
+            if multiturn_data is None:
+                continue
+            
+            data_list.append(multiturn_data)
+            seen_prompt_hashes.add(prompt_hash)
+
+            # Write to JSON after each new conversation
+            with open(output_path, "w", encoding="utf-8") as f:
+                json.dump(data_list, f, indent=2)
+
+            # Push to Hugging Face Hub incrementally
+            MultiturnDataset(data_list).push_to_hub(
+                repo_id=f"{args.hf_entity}/collabllm-multiturn-{args.dataset_name}"
+            )
+
 
     
 if __name__ == "__main__":
@@ -75,6 +157,8 @@ if __name__ == "__main__":
     parser.add_argument("--output_dir", type=str, required=True, help="Directory to save generated output.")
     parser.add_argument("--hf_entity", type=str, required=True, help="Hugging Face user or organization for dataset upload.")
     parser.add_argument("--save_steps", type=int, default=10, help="Save intermediate results every N steps.")
+    parser.add_argument("--resume", action="store_true", help="Resume from the last saved state if available.")
+    parser.add_argument("--max_gen_workers", type=int, default=8, help="Maximum number of threads to use for generating conversations (ThreadPool size).")
 
     load_dotenv(".env")
 
@@ -82,5 +166,3 @@ if __name__ == "__main__":
 
     print(args)
     main(args)
-
-    # python -m scripts.generate_reward_guided_multiturn_conv   --dataset_name math-hard   --metric_names "accuracy" "interactivity" "token_amount"   --metric_weights 1 1 -0.5   --user_generation_kwargs '{"model": "gpt-4o-mini"}'   --assistant_generation_kwargs '{"model": "gpt-4o", "temperature": 0.6}'   --output_dir outputs/multiturn_conv   --hf_entity collabllm --reward_generation_kwargs '{"model": "claude-3-5-sonnet-latest"}'

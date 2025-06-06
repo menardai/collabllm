@@ -53,7 +53,7 @@ from __future__ import annotations
 import os
 import random
 from typing import Any, Dict, List, Optional, Sequence, Union
-
+from collabllm.prompts import SYSTEM_PROMPT
 from datasets import Dataset, DatasetDict, load_dataset, load_from_disk
 
 _REQUIRED: set[str] = {
@@ -73,11 +73,11 @@ _REQUIRED: set[str] = {
 def _uniform_split(
     full_ds: Dataset,
     *,
-    split_ratio: float,
+    eval_ratio: float,
     n_eval: Optional[int],
     seed: int,
 ) -> DatasetDict:
-    k = n_eval if n_eval is not None else int(split_ratio * len(full_ds))
+    k = n_eval if n_eval is not None else int(eval_ratio * len(full_ds))
     k = min(k, len(full_ds))
 
     random.seed(seed)
@@ -100,8 +100,8 @@ class MultiturnDataset:
         self,
         data_or_local_dir_or_hf_repo_or_nested: Union[List[Dict[str, Any]], str],
         *,
-        split_ratio: float = 0.1,
         seed: int = 42,
+        add_system_prompt: bool = True,
     ):
         """
         Parameters
@@ -111,22 +111,20 @@ class MultiturnDataset:
             • Nested list of conversations (new style), OR
             • Local path saved by `Dataset.save_to_disk`, OR
             • HF Hub repo ID (e.g. "org/dataset").
-        split_ratio : float
-            Fraction for eval split when `n_eval` not given.
         seed : int
             RNG seed for uniform splitting.
         """
-        self.split_ratio = split_ratio
         self.seed = seed
+        self.sys_msg = [{"role": "system", "content": SYSTEM_PROMPT}] if add_system_prompt else []
 
         # 1) Load raw data into `raw_list` of dicts
         if isinstance(data_or_local_dir_or_hf_repo_or_nested, list):
             raw_list = data_or_local_dir_or_hf_repo_or_nested
         elif os.path.exists(str(data_or_local_dir_or_hf_repo_or_nested)):
-            ds_dict = load_from_disk(str(data_or_local_dir_or_hf_repo_or_hf_repo_or_nested))  # type: ignore
+            ds_dict = load_from_disk(str(data_or_local_dir_or_hf_repo_or_nested))  # type: ignore
             raw_list = [dict(r) for r in ds_dict.flatten()]
         else:
-            ds_dict = load_dataset(str(data_or_local_dir_or_hf_repo_or_hf_repo_or_nested), trust_remote_code=True)  # type: ignore
+            ds_dict = load_dataset(str(data_or_local_dir_or_hf_repo_or_nested), trust_remote_code=True)  # type: ignore
             raw_list = [dict(r) for _, split in ds_dict.items() for r in split]
 
         if not raw_list:
@@ -259,9 +257,8 @@ class MultiturnDataset:
         self,
         *,
         n_eval: Optional[int] = None,
-        split_ratio: Optional[float] = None,
+        eval_ratio: Optional[float] = None
     ) -> DatasetDict:
-        split_ratio = split_ratio or self.split_ratio
 
         # Pick the best (largest turn_id, then highest score) per conv_id
         best: Dict[Any, Dict[str, Any]] = {}
@@ -274,10 +271,10 @@ class MultiturnDataset:
                 best[cid] = r
 
         # Build a list of serialized dialogues
-        texts = [row["prompt"] + [{"role": "assistant", "content": row["completion"]}] for row in best.values()]
+        texts = [self.sys_msg + row["prompt"] + [{"role": "assistant", "content": row["completion"]}] for row in best.values()]
 
-        full_ds = Dataset.from_dict({"text": texts})
-        return _uniform_split(full_ds, split_ratio=split_ratio, n_eval=n_eval, seed=self.seed)
+        full_ds = Dataset.from_dict({"messages": texts})
+        return _uniform_split(full_ds, eval_ratio=eval_ratio, n_eval=n_eval, seed=self.seed)
 
     # ------------------------------------------------------------------ #
     # DPO                                                                #
@@ -287,9 +284,8 @@ class MultiturnDataset:
         *,
         minimum_gap: float = 0.0,
         n_eval: Optional[int] = None,
-        split_ratio: Optional[float] = None,
+        eval_ratio: Optional[float] = None,
     ) -> DatasetDict:
-        split_ratio = split_ratio or self.split_ratio
 
         # Group rows by (conv_id, turn_id)
         grouped: Dict[tuple, List[Dict[str, Any]]] = {}
@@ -305,7 +301,7 @@ class MultiturnDataset:
                 continue
             pairs.append(
                 {
-                    "prompt": items[0]["prompt"],
+                    "prompt": self.sys_msg + items[0]["prompt"],
                     "chosen": items[0]["completion"],
                     "rejected": items[-1]["completion"],
                     "score_chosen": items[0]["score"],
@@ -317,7 +313,7 @@ class MultiturnDataset:
             return DatasetDict({"train": Dataset.from_dict({}), "eval": Dataset.from_dict({})})
 
         full_ds = Dataset.from_dict({k: [p[k] for p in pairs] for k in pairs[0]})
-        return _uniform_split(full_ds, split_ratio=split_ratio, n_eval=n_eval, seed=self.seed)
+        return _uniform_split(full_ds, eval_ratio=eval_ratio, n_eval=n_eval, seed=self.seed)
 
     # ------------------------------------------------------------------ #
     # Inputs                                                             #
@@ -326,9 +322,8 @@ class MultiturnDataset:
         self,
         *,
         n_eval: Optional[int] = None,
-        split_ratio: Optional[float] = None,
+        eval_ratio: Optional[float] = None,
     ) -> DatasetDict:
-        split_ratio = split_ratio or self.split_ratio
 
         # Keep exactly one row per (conv_id, turn_id)
         unique: Dict[tuple, Dict[str, Any]] = {}
@@ -336,6 +331,7 @@ class MultiturnDataset:
             key = (r["conv_id"], r["turn_id"])
             if key not in unique:
                 unique[key] = r
+            r['prompt'] = self.sys_msg + r["prompt"]
 
         keep_keys = [
             "prompt",
@@ -348,7 +344,7 @@ class MultiturnDataset:
             return DatasetDict({"train": Dataset.from_dict({}), "eval": Dataset.from_dict({})})
 
         full_ds = Dataset.from_dict({k: [rec[k] for rec in records] for k in keep_keys})
-        return _uniform_split(full_ds, split_ratio=split_ratio, n_eval=n_eval, seed=self.seed)
+        return _uniform_split(full_ds, eval_ratio=eval_ratio, n_eval=n_eval, seed=self.seed)
 
     # ------------------------------------------------------------------ #
     # misc                                                               #
@@ -449,7 +445,7 @@ if __name__ == "__main__":
         },
     ]
 
-    ds = MultiturnDataset(toy_data, split_ratio=0.2, seed=42)
+    ds = MultiturnDataset(toy_data, eval_ratio=0.2, seed=42)
 
     # ------------------------------------------------------ #
     # 2) SFT                                                 #
@@ -529,7 +525,7 @@ if __name__ == "__main__":
         },
     ]
 
-    ds_nested = MultiturnDataset(nested_data, split_ratio=0.5, seed=123)
+    ds_nested = MultiturnDataset(nested_data, eval_ratio=0.5, seed=123)
 
     print("=== SFT from nested data ===")
     sft_ds: DatasetDict = ds_nested.to_sft_dataset()

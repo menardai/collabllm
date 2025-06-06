@@ -8,7 +8,7 @@ You will be provided with:
 
 Inputs:
 <|The Start of Task Description (Not visible to the AI)|>
-{task_description}
+{task_desc}
 <|The End of Task Description|>
 
 <|The Start of Complete Prompt or Reference Goal (Not visible to the AI)|>

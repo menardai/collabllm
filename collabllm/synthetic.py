@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from collabllm.simulation import ChatSessionSimulator
-from collabllm.reward import parallel_multiturn_aware_reward
+from collabllm.reward import multiturn_aware_reward
 from collabllm.utils.template import strip_system_prompt
 
 import logging
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 def generate_metric_based_synthetic_conversation(
     *,
-    task_description: str,
+    task_desc: str,
     single_turn_prompt: str,
     single_turn_completion: str,
     single_turn_metadata: Dict[str, Any],
@@ -58,7 +58,7 @@ def generate_metric_based_synthetic_conversation(
 
     # Shared simulation args
     base_sim_args = {
-        "task_description": task_description,
+        "task_desc": task_desc,
         "single_turn_prompt": single_turn_prompt,
         "local_model": local_model,
         "local_tokenizer": local_tokenizer,
@@ -77,7 +77,7 @@ def generate_metric_based_synthetic_conversation(
 
     # 1) initial user turn
     first_user_msg = sim.run_chat_simulation(
-        **base_sim_args, num_samples=1, chat_history=chat_history, max_new_turns=1, max_workers=max_workers, verbose=False
+        **base_sim_args, num_samples=1, chat_history=chat_history, max_new_turns=1, max_workers=1, verbose=False
     )[0][-1]
     chat_history.append(first_user_msg)
 
@@ -100,32 +100,24 @@ def generate_metric_based_synthetic_conversation(
         turn_prompt = list(chat_history)  # copy up to user turn
         responses_with_scores: List[Dict[str, Any]] = []
         scores: List[float] = []
-        # 1) Build temp_histories by appending each candidate completion to chat_history
-        temp_histories = [
-            chat_history + [{"role": "assistant", "content": completion}]
-            for completion in candidate_completions
-        ]
-
-        # 2) Call parallel_multiturn_aware_reward over all temp_histories
-        results = parallel_multiturn_aware_reward(
-            chat_histories=temp_histories,
-            base_sim_args=base_sim_args,  
-            single_turn_completion=single_turn_completion,
-            metric_names=metric_names,
-            reward_generation_kwargs=reward_generation_kwargs,
-            metadata=single_turn_metadata,
-            metric_weights=metric_weights,
-            max_new_turns=max_new_turns,
-            num_samples=num_samples,
-            max_workers=max_workers,
-            max_metric_workers=max_metric_workers,
-            return_details=True,
-            verbose=False,
-        )
-
-        # 3) Unpack rewards and sessions, compute scores, and collect data
-        for completion, (rewards, sessions) in zip(candidate_completions, results):
-            score = np.mean(rewards["MR"])
+        for completion in candidate_completions:
+            temp_history = chat_history + [{"role": "assistant", "content": completion}]
+            rewards, sessions = multiturn_aware_reward(
+                **base_sim_args,
+                single_turn_completion=single_turn_completion,
+                metric_names=metric_names,
+                reward_generation_kwargs=reward_generation_kwargs,
+                metadata=single_turn_metadata,
+                metric_weights=metric_weights,
+                chat_history=temp_history,
+                max_new_turns=max_new_turns,
+                num_samples=num_samples,
+                max_workers=max_workers,
+                max_metric_workers=max_metric_workers,
+                return_details=True,
+                verbose=False,
+            )
+            score = np.array(rewards["MR"]).mean()
             responses_with_scores.append({
                 "completion": completion,
                 "score": score,
@@ -133,7 +125,7 @@ def generate_metric_based_synthetic_conversation(
                 "rewards": rewards,
             })
             scores.append(score)
-        
+
         logger.info(f"\n\nResponses and scores (Turn {len(chat_history) // 2}):")
         logger.info(
             json.dumps(

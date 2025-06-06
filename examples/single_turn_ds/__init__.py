@@ -16,19 +16,19 @@ from .bigcodebench import BigCodeBench
 # ADD NEW DATASET BELOW
 datasets_info = {
     'math-hard': {
-        'task_description': 'question answering',
+        'task_desc': 'question answering',
         'class': MATH
     },
     'abg-coqa': {
-        'task_description': 'question answering',
+        'task_desc': 'question answering',
         'class': AbgCoQA
     },
     'medium': {
-        'task_description': 'document editing',
+        'task_desc': 'document editing',
         'class': Medium
     },
     'bigcodebench': {
-        'task_description': 'code generation',
+        'task_desc': 'code generation',
         'class': BigCodeBench
     },
 }

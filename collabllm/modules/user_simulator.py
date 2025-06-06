@@ -10,12 +10,12 @@ logger = logging.getLogger(__name__)
 
 
 class UserSimulator(object):
-    def __init__(self, task_description='', single_turn_prompt='', num_retries=10, **llm_kwargs):
+    def __init__(self, task_desc='', single_turn_prompt='', num_retries=10, **llm_kwargs):
         """
         Initialize the UserSimulator model.
         """
         super().__init__()
-        self.task_description = task_description
+        self.task_desc = task_desc
         self.single_turn_prompt = single_turn_prompt
         self.num_retries = num_retries
 
@@ -26,7 +26,7 @@ class UserSimulator(object):
     def __call__(self, messages: List[dict]):
         
         prompt = USER_SIMULATOR_PROMPT.format(
-            task_description=self.task_description,
+            task_desc=self.task_desc,
             single_turn_prompt=self.single_turn_prompt,
             chat_history=parse_messages(messages, strip_sys_prompt=True),
             terminal_signal=COLLABLLM_TERMINATION_SIGNAL,

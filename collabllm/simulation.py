@@ -39,7 +39,7 @@ class ChatSessionSimulator:
     def run_chat_simulation(
         self,
         *,
-        task_description: str,
+        task_desc: str,
         single_turn_prompt: str,
         num_samples: int = 1,                       # NEW
         chat_history: Optional[List[Dict[str, str]]] = None,
@@ -66,7 +66,7 @@ class ChatSessionSimulator:
         # 0 · Validation / defaults                                          #
         # ------------------------------------------------------------------ #
         self._validate_session_inputs(
-            task_description,
+            task_desc,
             single_turn_prompt,
             max_new_turns,
             local_model,
@@ -94,7 +94,7 @@ class ChatSessionSimulator:
 
         user_sims = [
             UserSimulator(
-                task_description=task_description,
+                task_desc=task_desc,
                 single_turn_prompt=single_turn_prompt,
                 **user_generation_kwargs,
             )
@@ -311,7 +311,7 @@ class ChatSessionSimulator:
     
     def _validate_session_inputs(
         self,
-        task_description: str,
+        task_desc: str,
         single_turn_prompt: str,
         max_new_turns: int,
         local_model: Optional[PreTrainedModel] = None,
@@ -326,8 +326,8 @@ class ChatSessionSimulator:
         ValueError
             If any invariant required by the session runner is violated.
         """
-        if not isinstance(task_description, str) or not task_description.strip():
-            raise ValueError("`task_description` must be a non-empty string.")
+        if not isinstance(task_desc, str) or not task_desc.strip():
+            raise ValueError("`task_desc` must be a non-empty string.")
 
         if not isinstance(single_turn_prompt, str) or not single_turn_prompt.strip():
             raise ValueError("`single_turn_prompt` must be a non-empty string.")

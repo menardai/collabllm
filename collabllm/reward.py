@@ -70,7 +70,7 @@ def _log_reward_summary(reward_dict: Dict[str, List[float]]) -> None:
 # --------------------------------------------------------------------------- #
 def multiturn_aware_reward(
     *,
-    task_description: str,  
+    task_desc: str,  
     single_turn_prompt: str,
     single_turn_completion: str,
     metric_names: Sequence[str],
@@ -93,7 +93,7 @@ def multiturn_aware_reward(
     # 1 · Generate all conversations in one call                         #
     # ------------------------------------------------------------------ #
     sessions = ChatSessionSimulator().run_chat_simulation(
-        task_description=task_description,
+        task_desc=task_desc,
         single_turn_prompt=single_turn_prompt,
         **chat_simulation_kwargs
 
@@ -150,64 +150,3 @@ def multiturn_aware_reward(
         return reward_dict, sessions
     return reward_dict
 
-
-def parallel_multiturn_aware_reward(
-    chat_histories: List[List[Dict[str, str]]],
-    *,
-    base_sim_args: Dict[str, Any],
-    single_turn_completion: str,
-    metric_names: List[str],
-    reward_generation_kwargs: Optional[Dict[str, Any]] = None,
-    metadata: Optional[Dict[str, Any]] = None,
-    metric_weights: Optional[List[float]] = None,
-    max_new_turns: int,
-    num_samples: int,
-    max_workers: int,
-    max_metric_workers: int,
-    return_details: bool = True,
-    verbose: bool = False,
-) -> List[Tuple[Any, Any]]:
-    """
-    Run multiturn_aware_reward in parallel over multiple chat histories.
-    Asserts that 'local_model' and 'vllm_base_model' in base_sim_args are None.
-    """
-    # Ensure no local_model or vllm_base_model are used
-    assert base_sim_args.get("local_model") is None, "local_model must be None"
-    assert base_sim_args.get("vllm_base_model") is None, "vllm_base_model must be None"
-
-    reward_generation_kwargs = reward_generation_kwargs or {}
-    metric_weights = metric_weights or [1.0] * len(metric_names)
-
-    def _evaluate_single(idx: int, history: List[Dict[str, str]]):
-        res = multiturn_aware_reward(
-            **base_sim_args,
-            single_turn_completion=single_turn_completion,
-            metric_names=metric_names,
-            reward_generation_kwargs=reward_generation_kwargs,
-            metadata=metadata,
-            metric_weights=metric_weights,
-            chat_history=history,
-            max_new_turns=max_new_turns,
-            num_samples=num_samples,
-            max_workers=max_workers,
-            max_metric_workers=max_metric_workers,
-            return_details=return_details,
-            verbose=verbose,
-        )
-        return idx, res
-
-    results: List[Optional[Tuple[Any, Any]]] = [None] * len(chat_histories)
-    worker_count = min(len(chat_histories), max_workers)
-    with ThreadPoolExecutor(max_workers=worker_count) as executor:
-        futures = {
-            executor.submit(_evaluate_single, idx, hist): idx
-            for idx, hist in enumerate(chat_histories)
-        }
-        for fut in as_completed(futures):
-            idx, res = fut.result()
-            results[idx] = res  # type: ignore
-
-    if not return_details:
-        return [(r, None) for r in results]  # type: ignore
-
-    return results  # type: ignore

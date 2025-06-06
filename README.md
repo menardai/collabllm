@@ -1,6 +1,6 @@
 # ColllabLLM: From Passive Responders to Active Collaborators (ICML 2025 Oral)
 
-Paper: https://github.com/Wuyxin/collabllm/paper/collabllm_camera_ready.pdf
+Paper: https://github.com/Wuyxin/collabllm/blob/main/paper/collabllm_camera_ready.pdf
 
 # Installation
 

@@ -5,7 +5,7 @@ Paper: https://github.com/Wuyxin/collabllm/blob/main/paper/collabllm_camera_read
 # Installation
 
 ```base
-conda create -n collabllm python=3.and0
+conda create -n collabllm python=3.10
 pip install -r requirements.txt
 ```
 

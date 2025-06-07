@@ -4,7 +4,14 @@
 
 # Installation
 
-```base
+```bash
+conda create -n collabllm python=3.10
+pip install collabllm
+```
+You should further install additional packages for customized metric, such as `bigcodebench`. To further conduct trainining, you should install additional packages such as `trl`, 
+
+To reproduce our experiments:
+```bash
 conda create -n collabllm python=3.10
 pip install -r requirements.txt
 ```

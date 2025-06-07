@@ -3,4 +3,4 @@ outputs/
 wandb/
 .env
 *egg-info
-dist/**
+dist/

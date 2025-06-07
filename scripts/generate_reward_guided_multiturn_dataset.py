@@ -4,24 +4,24 @@ To run the following, you need:
     - (Optional) Any custom metrics implemented under `examples/metrics`
 
 Example Usage:
-    python -m scripts.generate_reward_guided_multiturn_conv \
+    python -m scripts.generate_reward_guided_multiturn_dataset \
         --dataset_name math-hard \
         --metric_names "accuracy" "interactivity" "token_amount" \
         --metric_weights 1 1 -0.5 \
         --user_generation_kwargs '{"model": "gpt-4o-mini"}' \
         --assistant_generation_kwargs '{"model": "gpt-4o", "temperature": 0.6}' \
         --reward_generation_kwargs '{"model": "claude-3-5-sonnet-latest"}' \
-        --output_dir outputs/multiturn_conv \
+        --output_dir outputs/multiturn_data \
         --hf_entity collabllm
 
-    python -m scripts.generate_reward_guided_multiturn_conv \
+    python -m scripts.generate_reward_guided_multiturn_dataset \
         --dataset_name medium \
         --metric_names "document->bleu" "interactivity" "token_amount" \
         --metric_weights 1 1 -0.1 \
         --user_generation_kwargs '{"model": "gpt-4.1-mini"}' \
         --assistant_generation_kwargs '{"model": "gpt-4o", "temperature": 0.8}' \
         --reward_generation_kwargs '{"model": "claude-3-5-sonnet-latest"}' \
-        --output_dir outputs/multiturn_conv \
+        --output_dir outputs/multiturn_data \
         --hf_entity collabllm
 """
 

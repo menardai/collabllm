@@ -1,4 +1,4 @@
-# ColllabLLM: From Passive Responders to Active Collaborators (ICML 2025 Oral)
+# CollabLLM: From Passive Responders to Active Collaborators (ICML 2025 Oral)
 
 [Paper](https://cs.stanford.edu/~shirwu/files/collabllm_v1.pdf)
 
@@ -21,7 +21,7 @@ If you use this code in your research, please cite the following paper:
 ```bibtex
 @inproceedings{
     collabllm,
-    title={ColllabLLM: From Passive Responders to Active Collaborators},
+    title={CollabLLM: From Passive Responders to Active Collaborators},
     author={Shirley Wu and Michel Galley and 
             Baolin Peng and Hao Cheng and 
             Gavin Li and Yao Dou and Weixin Cai and 

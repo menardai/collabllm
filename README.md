@@ -1,6 +1,15 @@
-# CollabLLM: From Passive Responders to Active Collaborators (ICML 2025 Oral)
+# [In prep] CollabLLM: From Passive Responders to Active Collaborators (Oral @ ICML 2025)
 
-[Paper](https://cs.stanford.edu/~shirwu/files/collabllm_v1.pdf)
+
+
+<div align="left">
+
+[![](https://img.shields.io/badge/website-CollabLLM-purple?style=plastic&logo=Google%20chrome)](http://aka.ms/CollabLLM)
+[![](https://img.shields.io/badge/Datasets_&_Models-online-yellow?style=plastic&logo=Hugging%20face)](https://huggingface.co/collabllm)
+[![](https://img.shields.io/badge/Paper-red?style=plastic&logo=arxiv)](https://cs.stanford.edu/~shirwu/files/collabllm_v1.pdf)
+[![](https://img.shields.io/badge/pip-collabllm-brightgreen?style=plastic&logo=Python)](https://pypi.org/project/collabllm/) 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+</div>
 
 # Installation
 
@@ -8,19 +17,13 @@
 conda create -n collabllm python=3.10
 pip install collabllm
 ```
-You should further install additional packages for customized metric, such as `bigcodebench`. To further conduct trainining, you should install additional packages such as `trl`, 
-
-To reproduce our experiments:
-```bash
-conda create -n collabllm python=3.10
-pip install -r requirements.txt
-```
+You can further install additional packages for customized metric, such as `bigcodebench`. 
 
 # Quick Start
 
-`notebook_tutorials/`
+- Lightweight usage: Follow `notebook_tutorials/` to learn how to construct datasets and compute Multiturn-aware Rewards.
 
-`scripts/`
+- Training-based usage: Train models following examples under `scripts/`.
 
 # Citation
 If you use this code in your research, please cite the following paper:

@@ -4,7 +4,7 @@ To run the following, you need:
     - (Optional) Any custom metrics implemented under `examples/metrics`
 
 Example Usage:
-    python -m scripts.generate_reward_guided_multiturn_dataset \
+    python -m scripts.data_gen.multiturn_dataset \
         --dataset_name math-hard \
         --metric_names "accuracy" "interactivity" "token_amount" \
         --metric_weights 1 1 -0.5 \
@@ -14,7 +14,7 @@ Example Usage:
         --output_dir outputs/multiturn_data \
         --hf_entity collabllm
 
-    python -m scripts.generate_reward_guided_multiturn_dataset \
+    python -m scripts.data_gen.multiturn_dataset \
         --dataset_name medium \
         --metric_names "document->bleu" "interactivity" "token_amount" \
         --metric_weights 1 1 -0.1 \

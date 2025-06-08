@@ -1,6 +1,6 @@
 [project]
 name = "collabllm"
-version = "0.0.3"
+version = "0.0.5"
 authors = [
   { name="Shirley Wu", email="shirwu@stanford.edu" },
 ]
@@ -41,12 +41,19 @@ license-files = ["LICEN[CS]E*"]
 Homepage = "https://github.com/Wuyxin/collabllm"
 Issues = "https://github.com/Wuyxin/collabllm/issues"
 
+[tool.setuptools]
+include-package-data = true
+
 [build-system]
 requires = [
     "setuptools >= 77.0.3",
 ]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.package-data]
+"collabllm" = ["prompts/*.txt"]
+
 [tool.setuptools.packages.find]
-include = ["collabllm"]
+where = ["."]
+include = ["collabllm*", "collabllm/*"]
 exclude = ["notebook_tutorials", "outputs", "wandb"]

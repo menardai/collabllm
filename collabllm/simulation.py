@@ -41,16 +41,16 @@ class ChatSessionSimulator:
         *,
         task_desc: str,
         single_turn_prompt: str,
-        num_samples: int = 1,                       # NEW
-        chat_history: Optional[List[Dict[str, str]]] = None,
+        chat_history: List[Dict[str, str]],
+        assistant_generation_kwargs: Dict[str, Any],
+        user_generation_kwargs: Dict[str, Any],
+        num_samples: int = 1,                      
         max_new_turns: int = 0,
         proact_prompt_ratio: int = 0.0,
         add_system_prompt_ratio: float = 0.0,
         local_model: Optional[PreTrainedModel] = None,
         local_tokenizer: Optional[PreTrainedTokenizerBase] = None,
         vllm_base_model: Optional = None,
-        assistant_generation_kwargs: Optional[Dict[str, Any]] = None,
-        user_generation_kwargs: Optional[Dict[str, Any]] = None,
         max_workers: int = 8,
         verbose: bool = True,
     ) -> List[List[Dict[str, str]]]:
@@ -64,7 +64,7 @@ class ChatSessionSimulator:
         """
         # ------------------------------------------------------------------ #
         # 0 · Validation / defaults                                          #
-        # ------------------------------------------------------------------ #
+        # ------------------------------------------------------------------ 
         self._validate_session_inputs(
             task_desc,
             single_turn_prompt,
@@ -72,10 +72,9 @@ class ChatSessionSimulator:
             local_model,
             local_tokenizer,
             vllm_base_model,
+            assistant_generation_kwargs,
+            user_generation_kwargs
         )
-
-        assistant_generation_kwargs = assistant_generation_kwargs or {}
-        user_generation_kwargs = user_generation_kwargs or {}
 
         # ------------------------------------------------------------------ #
         # 1 · Per-conversation state                                         #
@@ -162,11 +161,6 @@ class ChatSessionSimulator:
                         fut_to_i[fut] = i
 
                     responses = {fut_to_i[f]: f.result() for f in fut_to_i}
-
-                # collab = LLMCollaborator(method=prompt_method, **assistant_generation_kwargs)
-                # with ThreadPoolExecutor(max_workers=max_workers) as pool:
-                #     fut_to_i = {pool.submit(collab, sessions[i]): i for i in asst_idx}
-                #     responses = {fut_to_i[f]: f.result() for f in fut_to_i}
             else:
                 batch_sess = [sessions[i] for i in asst_idx]
                 if vllm_base_model is not None:
@@ -253,6 +247,7 @@ class ChatSessionSimulator:
             device_map="auto",
         )
 
+        generation_kwargs = copy.deepcopy(generation_kwargs)
         max_new = generation_kwargs.pop("max_tokens", 1024)
         generation_kwargs.pop("model", None)  # not needed for HF pipeline
         prompts = [msgs for msgs in batch_messages]  # HF pipeline accepts list
@@ -316,7 +311,9 @@ class ChatSessionSimulator:
         max_new_turns: int,
         local_model: Optional[PreTrainedModel] = None,
         local_tokenizer: Optional[PreTrainedTokenizerBase] = None,
-        vllm_base_model: Optional[str] = None
+        vllm_base_model: Optional[str] = None,
+        assistant_generation_kwargs: Optional[Dict[str, Any]] = None,
+        user_generation_kwargs: Optional[Dict[str, Any]] = None
     ) -> None:
         """
         Sanity-check all arguments before starting a chat session.
@@ -340,6 +337,14 @@ class ChatSessionSimulator:
                 "Provide *both* `local_model` and `local_tokenizer`, or neither."
             )
 
+        if assistant_generation_kwargs.get("model") is None:
+            raise ValueError(
+                "`assistant_generation_kwargs` must include a 'model' key."
+            )
+        if user_generation_kwargs.get("model") is None:
+            raise ValueError(
+                "`user_generation_kwargs` must include a 'model' key."
+            )
 
     def _determine_starting_role(self, chat_history: List[Dict[str, str]]) -> str:
         """Determine which role should start the conversation."""
@@ -373,6 +378,7 @@ class ChatSessionSimulator:
         from vllm.sampling_params import SamplingParams
 
         # Filter valid parameters
+        generation_kwargs = copy.deepcopy(generation_kwargs)
         generation_kwargs.pop('model', None)  # 'model' is not a sampling param
         sampling_kwargs = {'max_tokens': 1024}  # Default max_tokens
         unmapped_params = []

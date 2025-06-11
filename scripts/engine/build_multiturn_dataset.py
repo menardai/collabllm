@@ -4,7 +4,7 @@ To run the following, you need:
     - (Optional) Any custom metrics implemented under `examples/metrics`
 
 Example Usage:
-    python -m scripts.data_gen.multiturn_dataset \
+    python -m scripts.engine.build_multiturn_dataset \
         --dataset_name math-hard \
         --metric_names "accuracy" "interactivity" "token_amount" \
         --metric_weights 1 1 -0.5 \
@@ -14,7 +14,7 @@ Example Usage:
         --output_dir outputs/multiturn_data \
         --hf_entity collabllm
 
-    python -m scripts.data_gen.multiturn_dataset \
+    python -m scripts.engine.build_multiturn_dataset \
         --dataset_name medium \
         --metric_names "document->bleu" "interactivity" "token_amount" \
         --metric_weights 1 1 -0.1 \
@@ -46,7 +46,7 @@ def compute_hash(text: str) -> str:
     return hashlib.md5(text.encode("utf-8")).hexdigest()
 
 
-def main(args):
+def data_engine(args):
     dataset_cls = datasets_info[args.dataset_name]["class"]
     task_desc = datasets_info[args.dataset_name]["task_desc"]
     dataset = dataset_cls().to_hf_dataset()
@@ -176,4 +176,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     print(args)
-    main(args)
+    data_engine(args)

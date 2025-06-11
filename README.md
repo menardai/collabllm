@@ -1,43 +1,66 @@
-# [In prep] CollabLLM: From Passive Responders to Active Collaborators (Oral @ ICML 2025)
-
+# CollabLLM: From Passive Responders to Active Collaborators  
+📢 Oral Presentation @ ICML 2025
 
 
 <div align="left">
 
-[![](https://img.shields.io/badge/website-CollabLLM-purple?style=plastic&logo=Google%20chrome)](http://aka.ms/CollabLLM)
-[![](https://img.shields.io/badge/Datasets_&_Models-online-yellow?style=plastic&logo=Hugging%20face)](https://huggingface.co/collabllm)
-[![](https://img.shields.io/badge/Paper-red?style=plastic&logo=arxiv)](https://cs.stanford.edu/~shirwu/files/collabllm_v1.pdf)
-[![](https://img.shields.io/badge/pip-collabllm-brightgreen?style=plastic&logo=Python)](https://pypi.org/project/collabllm/) 
+[![](https://img.shields.io/badge/Website-CollabLLM-purple?style=plastic&logo=Google%20Chrome)](http://aka.ms/CollabLLM)
+[![](https://img.shields.io/badge/Datasets_&_Models-HuggingFace-yellow?style=plastic&logo=Hugging%20Face)](https://huggingface.co/collabllm)
+[![](https://img.shields.io/badge/Paper-arXiv-red?style=plastic&logo=arxiv)](https://cs.stanford.edu/~shirwu/files/collabllm_v1.pdf)
+[![](https://img.shields.io/badge/PyPI-collabllm-brightgreen?style=plastic&logo=Python)](https://pypi.org/project/collabllm/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 </div>
 
-# Installation
+# Overview
+CollabLLM transforms traditional language models from passive responders to active collaborators in multi-turn conversations. This repository provides the complete framework for computing multiturn-aware rewards and training collaborative language models.
+
+---
+
+## Installation
+
+To get started, create a new environment and install `collabllm` via [pip](https://pypi.org/project/collabllm/):
 
 ```bash
 conda create -n collabllm python=3.10
+conda activate collabllm
 pip install collabllm
 ```
-You can further install additional packages for customized metric, such as `bigcodebench`. 
+Optional: You may install additional packages (e.g., `bigcodebench`) for task-specific metrics or evaluation.
 
 # Quick Start
 
-- Lightweight usage: Follow `notebook_tutorials/` to learn how to construct datasets and compute Multiturn-aware Rewards.
+- Lightweight usage: Compute Multiturn-aware Rewards (MRs) for any model responses and construct datasets following `notebook_tutorials/`.
+- Synthetic data generation: Generating high-quality synthetic conversational data following `scripts/data_engine/multiturn_dataset.py`.
+- Train CollabLLM: Conduct SFT/DPO/PPO models training to maximize MRs following examples under `scripts/train/*.py`.
 
-- Training-based usage: Train models following examples under `scripts/`.
+
+## Add Your Own Task
+
+To apply CollabLLM to a new task:
+
+1. **Add a Dataset:**  
+   Place your single-turn dataset in `examples/single_turn_ds/` and register it in `__init__.py`.
+
+2. **(Optional) Add Metrics:**  
+   Add new metrics to `examples/metrics/` and register them in `__init__.py`.
+
+You can now run data generation, reward computation, and model training using your customized setup.
+
 
 # Citation
 If you use this code in your research, please cite the following paper:
 
 ```bibtex
-@inproceedings{
-    collabllm,
+@inproceedings{collabllm2025,
     title={CollabLLM: From Passive Responders to Active Collaborators},
-    author={Shirley Wu and Michel Galley and 
-            Baolin Peng and Hao Cheng and 
-            Gavin Li and Yao Dou and Weixin Cai and 
-            James Zou and Jure Leskovec and Jianfeng Gao
-            },
-    booktitle={ICML},
+    author={Shirley Wu and Michel Galley and Baolin Peng and Hao Cheng and 
+            Gavin Li and Yao Dou and Weixin Cai and James Zou and 
+            Jure Leskovec and Jianfeng Gao},
+    booktitle={International Conference on Machine Learning (ICML)},
     year={2025}
 }
 ```
+
+# License
+This project is licensed under the MIT License.

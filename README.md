@@ -31,7 +31,7 @@ Optional: You may install additional packages (e.g., `bigcodebench`) for task-sp
 # Quick Start
 
 - Lightweight usage: Compute Multiturn-aware Rewards (MRs) for any model responses and construct datasets following `notebook_tutorials/`.
-- Synthetic data generation: Generating high-quality synthetic conversational data following `scripts/data_engine/multiturn_dataset.py`.
+- Synthetic data generation: Generating high-quality synthetic conversational data following `scripts/engine/build_dataset.py`.
 - Train CollabLLM: Conduct SFT/DPO/PPO models training to maximize MRs following examples under `scripts/train/*.py`.
 
 

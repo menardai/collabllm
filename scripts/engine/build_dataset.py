@@ -4,7 +4,7 @@ To run the following, you need:
     - (Optional) Any custom metrics implemented under `examples/metrics`
 
 Example Usage:
-    python -m scripts.data_gen.multiturn_dataset \
+    python -m scripts.engine.build_dataset \
         --dataset_name math-hard \
         --metric_names "accuracy" "interactivity" "token_amount" \
         --metric_weights 1 1 -0.5 \
@@ -14,7 +14,7 @@ Example Usage:
         --output_dir outputs/multiturn_data \
         --hf_entity collabllm
 
-    python -m scripts.data_gen.multiturn_dataset \
+    python -m scripts.engine.build_dataset \
         --dataset_name medium \
         --metric_names "document->bleu" "interactivity" "token_amount" \
         --metric_weights 1 1 -0.1 \
@@ -37,7 +37,7 @@ import warnings
 import concurrent.futures
 
 from collabllm.datasets.multiturn import MultiturnDataset
-from collabllm.synthetic import generate_metric_based_synthetic_conversation
+from collabllm.synthetic import generate_multiturn_dataset
 from examples.single_turn_ds import datasets_info
 from examples.metrics import *
 
@@ -46,13 +46,13 @@ def compute_hash(text: str) -> str:
     return hashlib.md5(text.encode("utf-8")).hexdigest()
 
 
-def main(args):
+def data_engine(args):
     dataset_cls = datasets_info[args.dataset_name]["class"]
     task_desc = datasets_info[args.dataset_name]["task_desc"]
     dataset = dataset_cls().to_hf_dataset()
     train = (
-        dataset["train"].select(range(args.conv_size))
-        if args.conv_size > 0
+        dataset["train"].select(range(args.train_size))
+        if args.train_size > 0
         else dataset["train"]
     )
 
@@ -93,9 +93,9 @@ def main(args):
         for example in pending_examples:
             prompt_hash = compute_hash(example["single_turn_prompt"])
 
-            # Submit generate_metric_based_synthetic_conversation using kwargs
+            # Submit generate_multiturn_dataset using kwargs
             future = executor.submit(
-                generate_metric_based_synthetic_conversation,
+                generate_multiturn_dataset,
                 task_desc=task_desc,
                 single_turn_prompt=example["single_turn_prompt"],
                 single_turn_completion=example["single_turn_completion"],
@@ -162,7 +162,7 @@ if __name__ == "__main__":
     parser.add_argument("--max_total_turns", type=int, default=14, help="Maximum number of conversation turns.")
     parser.add_argument("--max_new_turns", type=int, default=4, help="Window size for context in multi-turn generation.")
     parser.add_argument("--num_samples", type=int, default=3, help="Sample size for generating multiple conversations in one batch.")
-    parser.add_argument("--conv_size", type=int, default=500, help="Number of conversations to generate.")
+    parser.add_argument("--train_size", type=int, default=500, help="Number of conversations to generate.")
     parser.add_argument("--max_workers", type=int, default=16, help="Maximum number of parallel workers for sampling conversations.")
     parser.add_argument("--max_metric_workers", type=int, default=16, help="Maximum number of parallel workers for metrics.")
     parser.add_argument("--output_dir", type=str, required=True, help="Directory to save generated output.")
@@ -176,4 +176,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     print(args)
-    main(args)
+    data_engine(args)

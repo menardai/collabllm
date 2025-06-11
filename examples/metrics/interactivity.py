@@ -87,9 +87,13 @@ class InteractivityMetric(BaseMetric):
         logger.debug("Accuracy evaluator prompt:\n%s", eval_prompt)
 
         for _ in range(self.num_retries):
-            full_response = litellm.completion(
-                **self.llm_kwargs, messages=[{"role": "user", "content": eval_prompt}], num_retries=self.num_retries
-            ).choices[0].message.content
+            try:
+                full_response = litellm.completion(
+                    **self.llm_kwargs, messages=[{"role": "user", "content": eval_prompt}], num_retries=self.num_retries
+                ).choices[0].message.content
+            except:
+                logger.error("Error during LLM completion. Retrying...")
+                continue
 
             # ------------------------------------------------------------------ #
             # 4) Parse JSON                                                      #

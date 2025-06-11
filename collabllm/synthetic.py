@@ -10,7 +10,7 @@ from collabllm.utils.template import strip_system_prompt
 import logging
 logger = logging.getLogger(__name__)
 
-def generate_metric_based_synthetic_conversation(
+def generate_multiturn_dataset(
     *,
     task_desc: str,
     single_turn_prompt: str,

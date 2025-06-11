@@ -3,7 +3,7 @@
 Preparation: To run the following, you need to generate multiturn data from `scripts/generate_reward_guided_multiturn_conv.py`
 
 Fine-tune or SFT a causal-LM + LoRA adapter on a multi-turn dataset.
-Example
+Example (on 4 NVIDIA A100-SXM4-80GB GPUs):
 -------
 CUDA_VISIBLE_DEVICES=1,2,3,4 WANDB__SERVICE_WAIT=300 torchrun --master_port=56400 --nnodes=1 --nproc_per_node=4 -m scripts.train.sft \
     --dataset_repo collabllm/collabllm-multiturn-math-hard \
@@ -66,8 +66,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--eval_steps", type=int, default=500)
     p.add_argument("--save_total_limit", type=int, default=3)
     p.add_argument("--max_seq_length", type=int, default=4096)
-    p.add_argument("--warmup_ratio", type=float, default=0)          # NEW flag
-    p.add_argument("--logging_steps", type=int, default=1)             # NEW flag
+    p.add_argument("--warmup_ratio", type=float, default=0)          
+    p.add_argument("--logging_steps", type=int, default=1)          
 
     # Precision / hardware
     p.add_argument("--device", type=str, default="cuda")

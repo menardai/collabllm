@@ -3,41 +3,45 @@
 Preparation: To run the following, you need to generate multiturn data from `scripts/generate_reward_guided_multiturn_conv.py`
 
 DPO train a causal-LM + LoRA adapter on a multi-turn dataset.
-Example
+Example (on 8 NVIDIA A100-SXM4-80GB GPUs):
 -------
-CUDA_VISIBLE_DEVICES=4 WANDB__SERVICE_WAIT=300 python -m scripts.train.online_dpo \
-
-CUDA_VISIBLE_DEVICES=1,2 WANDB__SERVICE_WAIT=300 torchrun --master_port=56800 --nnodes=1 --nproc_per_node=2 -m scripts.train.online_dpo \
+ENABLE_COLLABLLM_LOGGING=0 LLM_USE_V1=1 VLLM_ENABLE_V1_MULTIPROCESSING=0 WANDB__SERVICE_WAIT=300 CUDA_VISIBLE_DEVICES=1,2,3,4,6,7 \
+    torchrun --master_port=56500 --nnodes=1 --nproc_per_node=6 -m scripts.train.online_dpo \
     --dataset_name math-hard \
     --metric_names "accuracy" "interactivity" "token_amount" \
     --metric_weights 1 1 -0.5 \
     --user_generation_kwargs '{"model": "gpt-4o-mini"}' \
-    --assistant_generation_kwargs '{"model": "sft-Llama-3.1-8B-Instruct", "temperature": 0.6}' \
+    --assistant_generation_kwargs '{"model": "sft-math-hard-Llama-3.1-8B-Instruct", "temperature": 0.6}' \
     --reward_generation_kwargs '{"model": "claude-3-5-sonnet-latest"}' \
     --dataset_repo collabllm/collabllm-multiturn-math-hard \
     --model_name outputs/sft/collabllm-multiturn-math-hard \
     --output_dir outputs/online_dpo/collabllm-multiturn-math-hard \
     --per_device_train_batch_size 1 \
     --per_device_eval_batch_size 1 \
-    --gradient_accumulation_steps 8 \
+    --gradient_accumulation_steps 4 \
     --save_total_limit 10 \
-    --num_train_epochs 8 \
+    --num_train_epochs 1 \
     --learning_rate 5e-6 \
+    --gpu_memory_utilization 0.6 \
     --eval_steps 1 \
     --logging_steps 1 \
     --wandb_entity dsp-team \
     --wandb_project collabllm \
+    --num_samples 3 \
+    --max_new_turns 4 \
     --use_4bit
 """
-
 from __future__ import annotations
 
 import argparse, os, json
+import torch.distributed as dist
 import wandb
 import hashlib
 from typing import Tuple, Optional
 from dotenv import load_dotenv
+from datetime import timedelta
 import numpy as np
+import copy
 
 from trl import OnlineDPOConfig, OnlineDPOTrainer
 from trl.trainer.judges import BasePairwiseJudge
@@ -52,6 +56,7 @@ from peft import PeftConfig, PeftModel, LoraConfig, get_peft_model
 from collabllm.datasets.multiturn import MultiturnDataset
 from collabllm.reward import multiturn_aware_reward
 from examples.single_turn_ds import datasets_info
+from collabllm.simulation import ChatSessionSimulator
 from examples.metrics import *
 
 # --------------------------------------------------------------------------- #
@@ -71,7 +76,6 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--max_new_turns", type=int, default=4)
     p.add_argument("--num_samples", type=int, default=3)
 
-    p.add_argument("--eval_ratio",   type=float, default=0)
     p.add_argument("--output_dir",   type=str, required=True)
     p.add_argument("--resume_ckpt_dir", type=str, default=None)
 
@@ -85,7 +89,7 @@ def parse_args() -> argparse.Namespace:
 
     # Optim & schedule
     p.add_argument("--learning_rate", type=float, default=1e-5)
-    p.add_argument("--num_train_epochs", type=int, default=1)
+    p.add_argument("--num_train_epochs", type=int, default=3)
     p.add_argument("--per_device_train_batch_size", type=int, default=4)
     p.add_argument("--per_device_eval_batch_size", type=int, default=4)
     p.add_argument("--gradient_accumulation_steps", type=int, default=4)
@@ -97,10 +101,10 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--max_new_tokens", type=int, default=2048) 
     p.add_argument("--minimum_gap", type=float, default=0.1) 
     
-
     # Precision / hardware
     p.add_argument("--device", type=str, default="cuda")
     p.add_argument("--use_4bit", action="store_true")
+    p.add_argument("--gpu_memory_utilization", type=float, default=0.6)
 
     # Tracking
     p.add_argument("--wandb_project", type=str)
@@ -129,7 +133,7 @@ def load_model_and_tokenizer(
     lora_cfg: Optional[LoraConfig],
     device: str = "cuda",
     is_eval: bool = False,
-    gpu_memory_utilization: float = 0.5,
+    gpu_memory_utilization: float = 0.6,
 ) -> Tuple[torch.nn.Module, AutoTokenizer]:
     try:
         pc = PeftConfig.from_pretrained(model_name)
@@ -143,6 +147,7 @@ def load_model_and_tokenizer(
         tok = AutoTokenizer.from_pretrained(pc.base_model_name_or_path, trust_remote_code=True)
         base_model_name = pc.base_model_name_or_path
     except Exception:
+        logger.error(f"Failed to load PeftConfig for {model_name}, loading as base model.")
         model = AutoModelForCausalLM.from_pretrained(
             model_name,
             device_map={"": device},
@@ -161,38 +166,18 @@ def load_model_and_tokenizer(
 
     try:
         from vllm import LLM
-        from typing import Type
-        from vllm.config import VllmConfig
-        from vllm.worker.worker import Worker
-        from vllm.worker.model_runner import GPUModelRunnerBase
-
-        ori_worker_init = Worker.__init__
-
-        def patched_worker_init_for_custom_device(
-                self,
-                vllm_config: VllmConfig,
-                local_rank: int,
-                rank: int,
-                distributed_init_method: str,
-                is_driver_worker: bool = False,
-                model_runner_cls: [Type[GPUModelRunnerBase]] = None,
-        ):
-            new_local_rank = int(os.environ.get('LOCAL_RANK', 0))
-            return ori_worker_init(self, vllm_config, new_local_rank, rank, distributed_init_method, is_driver_worker, model_runner_cls)
-
-        Worker.__init__ = patched_worker_init_for_custom_device
 
         vllm_base_model = LLM(
             model=base_model_name,
             dtype="bfloat16" if torch.cuda.is_bf16_supported() else "float16",
             quantization="bitsandbytes" if bnb_cfg else None,
-            load_format="bitsandbytes" if bnb_cfg else None,
-            enable_lora=True,
-            max_lora_rank=lora_cfg.r,
-            gpu_memory_utilization=gpu_memory_utilization,
-            tensor_parallel_size=1 # torch.cuda.device_count()
+            enable_lora=True if lora_cfg else False,
+            max_lora_rank=lora_cfg.r if lora_cfg else None,
+            # Use `distributed_executor_backend="external_launcher"` so that
+            # this llm engine/instance only creates one worker.
+            distributed_executor_backend="external_launcher",
+            gpu_memory_utilization=gpu_memory_utilization
         )
-        os.environ["RANK"] = str(rank)
     except ImportError:
         vllm_base_model = None
     return model, tok, vllm_base_model
@@ -204,8 +189,14 @@ def main() -> None:
     args = parse_args()
     os.makedirs(args.output_dir, exist_ok=True)
 
+    # Imporant for initializing vllm base model per GPU
+    local_rank = int(os.environ['LOCAL_RANK'])
+    dist.init_process_group(backend='nccl', init_method=None)
+    torch.cuda.set_device(local_rank)
+    dist.barrier()
+
     # Dataset
-    ds = MultiturnDataset(args.dataset_repo).to_inputs_dataset(eval_ratio=args.eval_ratio)
+    ds = MultiturnDataset(args.dataset_repo).to_inputs_dataset(eval_ratio=0.)
 
     # Bits-and-bytes
     bnb_cfg = BitsAndBytesConfig(
@@ -233,6 +224,7 @@ def main() -> None:
         lora_cfg=lora_cfg,
         device=args.device,
         is_eval=False,
+        gpu_memory_utilization=args.gpu_memory_utilization,
     )
 
     # DeepSpeed zero
@@ -281,6 +273,7 @@ def main() -> None:
         use_vllm=False,
         fp16=not torch.cuda.is_bf16_supported(), 
         bf16=torch.cuda.is_bf16_supported(),
+        save_total_limit=args.save_total_limit,
     )
 
     # W&B
@@ -343,12 +336,54 @@ def main() -> None:
                     pair_rewards.append(np.mean(reward_info["MR"]))
                 rank_of_the_first_completion.append(np.argmax(pair_rewards).item())
                 logger.info(
-                    f"\n[Response 1] {completion_pair[0]}\n\n[Response 2] {completion_pair[1]}\nRewards: {pair_rewards}\n"
+                    f"\n({local_rank=}) [Response 1] {completion_pair[0]}\n\n[Response 2] {completion_pair[1]}\nRewards: {pair_rewards}\n"
                 )
             return torch.tensor(rank_of_the_first_completion)
             
                 
     judge = MultiturnRewardJudge()  
+
+    ######################## [Hack] Override vLLM for OnlineDPOTrainer ########################
+    def _generate_vllm(self, model, prompts):
+        eos_token_id = tok.eos_token_id
+        pad_token_id = tok.pad_token_id
+        
+        generation_kwargs = copy.deepcopy(args.assistant_generation_kwargs)
+        generation_kwargs.update({"n": 2, "top_k": 50, "top_p": 1.0, "detokenize": False})
+
+        outputs = ChatSessionSimulator()._batch_generate_with_vllm(
+            batch_messages=prompts,
+            vllm_base_model=vllm,
+            local_model=model,
+            model_name=generation_kwargs.get("model"),
+            generation_kwargs=generation_kwargs,
+            return_outputs=True
+        )
+
+        completion_ids = [list(output.outputs[i].token_ids) for i in range(2) for output in outputs]
+        prompt_ids = [list(output.prompt_token_ids) for _ in range(2) for output in outputs]
+
+        # Create mask and pad the prompt and completion
+        max_prompt_length = max(len(ids) for ids in prompt_ids)
+        prompt_mask = [[0] * (max_prompt_length - len(ids)) + [1] * len(ids) for ids in prompt_ids]
+        prompt_ids = [[pad_token_id] * (max_prompt_length - len(ids)) + ids for ids in prompt_ids]
+        max_tokens = args.max_new_tokens
+        completion_mask = [[1] * len(ids) + [0] * (max_tokens - len(ids)) for ids in completion_ids]
+        completion_ids = [
+            ids + [eos_token_id] if ids[-1] != eos_token_id and len(ids) < max_tokens else ids
+            for ids in completion_ids
+        ]
+        completion_ids = [ids + [pad_token_id] * (max_tokens - len(ids)) for ids in completion_ids]
+
+        # Convert to tensors
+        prompt_ids = torch.tensor(prompt_ids, device=self.accelerator.device)
+        prompt_mask = torch.tensor(prompt_mask, device=self.accelerator.device)
+        completion_ids = torch.tensor(completion_ids, device=self.accelerator.device)
+        completion_mask = torch.tensor(completion_mask, device=self.accelerator.device)
+
+        return prompt_ids, prompt_mask, completion_ids, completion_mask
+
+    OnlineDPOTrainer._generate_vllm = _generate_vllm
 
     ######################## Trainer ########################
     trainer = OnlineDPOTrainer(
@@ -358,6 +393,7 @@ def main() -> None:
         processing_class=tok,
         args=train_args,
     )
+    trainer.args.use_vllm = True if vllm else False
 
     trainer.model.print_trainable_parameters()
     trainer.train(resume_from_checkpoint=args.resume_ckpt_dir)

@@ -16,6 +16,7 @@ from collabllm.prompts import SYSTEM_PROMPT
 from collabllm import ENABLE_COLLABLLM_LOGGING
 from collabllm.prompts import COLLABLLM_TERMINATION_SIGNAL
 from collabllm.modules import LLMCollaborator, UserSimulator
+from collabllm.utils.format import is_conversational
 
 logger = logging.getLogger(__name__)
 
@@ -101,13 +102,13 @@ class ChatSessionSimulator:
         ]
 
         # Optional PEFT materialisation for vLLM
-        assistant_model_name = assistant_generation_kwargs.get("model")
+        model_name = assistant_generation_kwargs.get("model")
         if (
             vllm_base_model is not None
             and local_model is not None
             and hasattr(local_model, "peft_config")
         ):
-            self._write_peft_checkpoint(local_model, assistant_model_name)
+            self._write_peft_checkpoint(local_model, model_name)
 
         # ------------------------------------------------------------------ #
         # 2 · Conversation loop (respects max_new_turns budget)              #
@@ -168,7 +169,7 @@ class ChatSessionSimulator:
                         batch_sess,
                         vllm_base_model,
                         local_model,
-                        assistant_model_name,
+                        model_name,
                         assistant_generation_kwargs,
                     )
                 else:
@@ -205,25 +206,30 @@ class ChatSessionSimulator:
         batch_messages: List[List[Dict[str, str]]],
         vllm_base_model,
         local_model,
-        assistant_model_name: str,
+        model_name: str,
         generation_kwargs: Dict[str, Any],
+        return_outputs: bool = False
     ) -> List[str]:
         """Batched vLLM generation (returns list of responses)."""
         from vllm.lora.request import LoRARequest
 
         sampling_params = self._convert_to_sampling_params(generation_kwargs)
-        if hasattr(local_model, "peft_config"):
-            peft_dir = self._get_peft_dir(assistant_model_name)
+        peft_dir = self._get_peft_dir(model_name)
+        if hasattr(local_model, "peft_config") and os.path.exists(peft_dir):
+            logger.info(f"Using PEFT checkpoint from {peft_dir}")
             lora_req = LoRARequest("interactive_adapter", 1, peft_dir)
         else:
             lora_req = None
 
         # vLLM can accept a list of message histories; returns list[str]
-        outs = vllm_base_model.chat(
-            messages=batch_messages,
-            sampling_params=sampling_params,
-            lora_request=lora_req
-        )
+        if is_conversational({"prompt": batch_messages[0]}):
+            outs = vllm_base_model.chat(batch_messages, sampling_params=sampling_params, lora_request=lora_req, use_tqdm=False)
+        else:
+            outs = vllm_base_model.generate(batch_messages, sampling_params=sampling_params, lora_request=lora_req, use_tqdm=False)
+
+        if return_outputs:
+            return outs
+        
         generated_texts = [out.outputs[0].text for out in outs]
         return generated_texts
 
@@ -277,14 +283,14 @@ class ChatSessionSimulator:
     def _write_peft_checkpoint(
         self,
         local_model,
-        assistant_model_name: str
+        model_name: str
     ):
         """
         Write the PEFT checkpoint for the local model if required.
         
         Args:
             local_model: The local model instance to save
-            assistant_model_name: Name of the assistant model
+            model_name: Name of the assistant model
             
         Returns:
             Path to the saved PEFT checkpoint directory
@@ -293,7 +299,7 @@ class ChatSessionSimulator:
             FileNotFoundError: If unable to create or access the run user directory
         """
 
-        peft_dir = self._get_peft_dir(assistant_model_name.replace("/", "_"))
+        peft_dir = self._get_peft_dir(model_name)
         
         # Ensure PEFT directory exists
         os.makedirs(peft_dir, exist_ok=True)
@@ -352,18 +358,18 @@ class ChatSessionSimulator:
             return 'assistant'
         return 'user'
     
-    def _get_peft_dir(self, assistant_model_name: str) -> str:
+    def _get_peft_dir(self, model_name: str) -> str:
         """
         Get the directory for the PEFT checkpoint.
         
         Args:
-            assistant_model_name: Name of the assistant model
+            model_name: Name of the assistant model
             
         Returns:
             Path to the PEFT checkpoint directory
         """
         run_user_dir = os.environ.get("RUN_USER_DIR")
-        return os.path.join(run_user_dir, f"{assistant_model_name}{PEFT_CHECKPOINT_SUFFIX}")
+        return os.path.join(run_user_dir, f"{model_name.replace('/', '_')}{PEFT_CHECKPOINT_SUFFIX}")
     
     def _convert_to_sampling_params(self, generation_kwargs: Dict[str, Any]):
         """

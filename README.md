@@ -1,5 +1,5 @@
 # CollabLLM: From Passive Responders to Active Collaborators  
-📢 Oral Presentation @ ICML 2025
+📢 Oral @ ICML 2025 (1% out of all submissions)
 
 
 <div align="left">
@@ -49,7 +49,7 @@ You can now run data generation, reward computation, and model training using yo
 
 
 # Citation
-If you use this code in your research, please cite the following paper:
+If you find our work useful in your research, please cite the following:
 
 ```bibtex
 @inproceedings{collabllm2025,
@@ -61,6 +61,3 @@ If you use this code in your research, please cite the following paper:
     year={2025}
 }
 ```
-
-# License
-This project is licensed under the MIT License.

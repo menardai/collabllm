@@ -1,6 +1,4 @@
 # CollabLLM: From Passive Responders to Active Collaborators  
-📢 Oral @ ICML 2025 (1% out of all submissions)
-
 
 <div align="left">
 
@@ -11,6 +9,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 </div>
+
+📢 Oral @ ICML 2025 (1% out of all submissions)
 
 # Overview
 CollabLLM transforms traditional language models from passive responders to active collaborators in multi-turn conversations. This repository provides the complete framework for computing multiturn-aware rewards and training collaborative language models.
@@ -31,7 +31,7 @@ Optional: You may install additional packages (e.g., `bigcodebench`) for task-sp
 # Quick Start
 
 - Lightweight usage: Compute Multiturn-aware Rewards (MRs) for any model responses and construct datasets following `notebook_tutorials/`.
-- Synthetic data generation: Generating high-quality synthetic conversational data following `scripts/data_engine/multiturn_dataset.py`.
+- Synthetic data generation: Generating high-quality synthetic conversational data following `scripts/engine/build_dataset.py`.
 - Train CollabLLM: Conduct SFT/DPO/PPO models training to maximize MRs following examples under `scripts/train/*.py`.
 
 

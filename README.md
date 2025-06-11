@@ -1,6 +1,4 @@
 # CollabLLM: From Passive Responders to Active Collaborators  
-📢 Oral @ ICML 2025 (1% out of all submissions)
-
 
 <div align="left">
 
@@ -11,6 +9,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 </div>
+
+📢 Oral @ ICML 2025 (1% out of all submissions)
 
 # Overview
 CollabLLM transforms traditional language models from passive responders to active collaborators in multi-turn conversations. This repository provides the complete framework for computing multiturn-aware rewards and training collaborative language models.

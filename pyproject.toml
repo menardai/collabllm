@@ -31,7 +31,7 @@ dependencies = [
     "tokenizers",
     "torch",
     "tqdm",
-    "trl==0.18.1",
+    "trl>0.18",
     "transformers",
     "vllm",
     "wandb",

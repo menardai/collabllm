@@ -18,7 +18,7 @@ Example Usage:
         --dataset_name medium \
         --metric_names "document->bleu" "interactivity" "token_amount" \
         --metric_weights 1 1 -0.1 \
-        --user_generation_kwargs '{"model": "gpt-4.1-mini"}' \
+        --user_generation_kwargs '{"model": "gpt-4o"}' \
         --assistant_generation_kwargs '{"model": "gpt-4o", "temperature": 0.8}' \
         --reward_generation_kwargs '{"model": "claude-3-5-sonnet-latest"}' \
         --output_dir outputs/multiturn_data \

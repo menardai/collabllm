@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Preparation: To run the following, you need to generate multiturn data from `scripts/generate_reward_guided_multiturn_conv.py`
+Preparation: To run the following, you need to generate multiturn data from `scripts.engine.build_dataset`
 
 DPO train a causal-LM + LoRA adapter on a multi-turn dataset.
 Example (on 8 NVIDIA A100-SXM4-80GB GPUs):
 -------
-ENABLE_COLLABLLM_LOGGING=0 LLM_USE_V1=1 VLLM_ENABLE_V1_MULTIPROCESSING=0 WANDB__SERVICE_WAIT=300 CUDA_VISIBLE_DEVICES=1,2,3,4,6,7 \
-    torchrun --master_port=56500 --nnodes=1 --nproc_per_node=6 -m scripts.train.online_dpo \
+ENABLE_COLLABLLM_LOGGING=0 LLM_USE_V1=1 VLLM_ENABLE_V1_MULTIPROCESSING=0 WANDB__SERVICE_WAIT=300 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 \
+    torchrun --master_port=56500 --nnodes=1 --nproc_per_node=8 -m scripts.train.online_dpo \
     --dataset_name math-hard \
     --metric_names "accuracy" "interactivity" "token_amount" \
     --metric_weights 1 1 -0.5 \
@@ -29,7 +29,8 @@ ENABLE_COLLABLLM_LOGGING=0 LLM_USE_V1=1 VLLM_ENABLE_V1_MULTIPROCESSING=0 WANDB__
     --wandb_project collabllm \
     --num_samples 3 \
     --max_new_turns 4 \
-    --use_4bit
+    --max_metric_workers 2 \
+    --use_lora
 """
 from __future__ import annotations
 
@@ -96,14 +97,16 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--eval_steps", type=int, default=500)
     p.add_argument("--save_total_limit", type=int, default=3)
     p.add_argument("--warmup_ratio", type=float, default=0)        
-    p.add_argument("--logging_steps", type=int, default=1)           
-    p.add_argument("--max_prompt_length", type=int, default=2048) 
+    p.add_argument("--logging_steps", type=int, default=1)         
+    p.add_argument("--max_model_len", type=int, default=8196)
     p.add_argument("--max_new_tokens", type=int, default=2048) 
     p.add_argument("--minimum_gap", type=float, default=0.1) 
+    p.add_argument("--max_metric_workers", type=int, default=4)
     
     # Precision / hardware
     p.add_argument("--device", type=str, default="cuda")
-    p.add_argument("--use_4bit", action="store_true")
+    p.add_argument("--use_4bit", action="store_true", default=False)
+    p.add_argument("--use_lora", action="store_true", default=False)
     p.add_argument("--gpu_memory_utilization", type=float, default=0.6)
 
     # Tracking
@@ -134,6 +137,7 @@ def load_model_and_tokenizer(
     device: str = "cuda",
     is_eval: bool = False,
     gpu_memory_utilization: float = 0.6,
+    max_model_len: int = 8196
 ) -> Tuple[torch.nn.Module, AutoTokenizer]:
     try:
         pc = PeftConfig.from_pretrained(model_name)
@@ -176,7 +180,8 @@ def load_model_and_tokenizer(
             # Use `distributed_executor_backend="external_launcher"` so that
             # this llm engine/instance only creates one worker.
             distributed_executor_backend="external_launcher",
-            gpu_memory_utilization=gpu_memory_utilization
+            gpu_memory_utilization=gpu_memory_utilization,
+            max_model_len=max_model_len
         )
     except ImportError:
         vllm_base_model = None
@@ -210,12 +215,11 @@ def main() -> None:
     lora_cfg = LoraConfig(
         r=args.peft_r,
         lora_alpha=args.peft_alpha,
-        lora_dropout=args.peft_dropout,
         bias="none",
         task_type="CAUSAL_LM",
         init_lora_weights="gaussian",
         target_modules=args.target_modules.split(","),
-    )
+    ) if args.use_lora else None
 
     # Load model
     model, tok, vllm = load_model_and_tokenizer(
@@ -225,6 +229,7 @@ def main() -> None:
         device=args.device,
         is_eval=False,
         gpu_memory_utilization=args.gpu_memory_utilization,
+        max_model_len=args.max_model_len
     )
 
     # DeepSpeed zero
@@ -264,7 +269,7 @@ def main() -> None:
         num_train_epochs=args.num_train_epochs,
         gradient_checkpointing_kwargs={'use_reentrant': False},
         max_new_tokens=args.max_new_tokens, 
-        max_length=args.max_prompt_length + args.max_new_tokens, 
+        max_length=args.max_model_len,
         per_device_train_batch_size=args.per_device_train_batch_size,
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         run_name=args.output_dir,
@@ -331,6 +336,7 @@ def main() -> None:
                         reward_generation_kwargs=args.reward_generation_kwargs,
                         num_samples=args.num_samples,
                         max_new_turns=args.max_new_turns,
+                        max_metric_workers=args.max_metric_workers,
                         **collabllm_model_kwargs
                     )
                     pair_rewards.append(np.mean(reward_info["MR"]))
@@ -395,7 +401,6 @@ def main() -> None:
     )
     trainer.args.use_vllm = True if vllm else False
 
-    trainer.model.print_trainable_parameters()
     trainer.train(resume_from_checkpoint=args.resume_ckpt_dir)
 
     trainer.save_model(args.output_dir)

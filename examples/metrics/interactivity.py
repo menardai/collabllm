@@ -50,8 +50,9 @@ class InteractivityMetric(BaseMetric):
     Uses an LLM judge to produce an interactivity score in [-1, 1].
     """
 
-    def __init__(self, num_retries: int = 10, **llm_kwargs):
+    def __init__(self, num_retries: int = 50, retry_after: int = 60, **llm_kwargs):
         self.num_retries = num_retries
+        self.retry_after = retry_after
         # Default to a deterministic model unless overridden.
         self.llm_kwargs: Dict[str, Any] = {
             "temperature": 0.0,
@@ -86,13 +87,15 @@ class InteractivityMetric(BaseMetric):
 
         logger.debug("Accuracy evaluator prompt:\n%s", eval_prompt)
 
-        for _ in range(self.num_retries):
+        for i in range(self.num_retries):
             try:
                 full_response = litellm.completion(
-                    **self.llm_kwargs, messages=[{"role": "user", "content": eval_prompt}], num_retries=self.num_retries
+                    **self.llm_kwargs, messages=[{"role": "user", "content": eval_prompt}], num_retries=1
                 ).choices[0].message.content
-            except:
-                logger.error("Error during LLM completion. Retrying...")
+            except Exception as e:
+                import time
+                time.sleep(self.retry_after)
+                logger.error(f"[retry={i + 1}] Error during LLM call: {e}")
                 continue
 
             # ------------------------------------------------------------------ #

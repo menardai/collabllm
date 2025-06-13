@@ -1,10 +1,10 @@
-# CollabLLM: From Passive Responders to Active Collaborators  
+a# CollabLLM: From Passive Responders to Active Collaborators  
 
 <div align="left">
 
 [![](https://img.shields.io/badge/Website-CollabLLM-purple?style=plastic&logo=Google%20Chrome)](http://aka.ms/CollabLLM)
 [![](https://img.shields.io/badge/Datasets_&_Models-HuggingFace-yellow?style=plastic&logo=Hugging%20Face)](https://huggingface.co/collabllm)
-[![](https://img.shields.io/badge/Paper-arXiv-red?style=plastic&logo=arxiv)](https://cs.stanford.edu/~shirwu/files/collabllm_v1.pdf)
+[![](https://img.shields.io/badge/Paper-arXiv-red?style=plastic&logo=arxiv)](https://arxiv.org/pdf/2502.00640)
 [![](https://img.shields.io/badge/PyPI-collabllm-brightgreen?style=plastic&logo=Python)](https://pypi.org/project/collabllm/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 

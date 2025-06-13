@@ -1,4 +1,4 @@
-a# CollabLLM: From Passive Responders to Active Collaborators  
+# CollabLLM: From Passive Responders to Active Collaborators  
 
 <div align="left">
 

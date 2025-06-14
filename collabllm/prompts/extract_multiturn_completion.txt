@@ -31,4 +31,6 @@ Note:
    second line.""".
 2. In the "final_completion" entry, replace all double quotes (") with single quotes (') to prevent JSON formatting issues. For example, you can output "final_completion": "'Hello World' is a common phrase." 
 
+{extraction_requirement}
+
 Take a deep breath and carefully follow the instructions and guidelines provided. 

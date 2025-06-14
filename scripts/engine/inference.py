@@ -18,10 +18,10 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 torchrun --nproc_per_node=8 --master_port=5
 
 On math-hard dataset:
 -------
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 torchrun --nproc_per_node=8 --master_port=56900 -m scripts.engine.inference \
+CUDA_VISIBLE_DEVICES=6,7 torchrun --nproc_per_node=2 --master_port=56900 -m scripts.engine.inference \
     --dataset_name math-hard \
     --model_name meta-llama/Llama-3.1-8B-Instruct \
-    --output_dir outputs/base/collabllm-multiturn-math-hard/inference \
+    --output_dir outputs/base/collabllm-multiturn-math-hard/inference-4o \
     --eval_metric_names accuracy interactivity token_amount \
     --user_generation_kwargs '{"model": "gpt-4o"}' \
     --assistant_generation_kwargs '{"model": "meta-llama/Llama-3.1-8B-Instruct", "temperature": 0.6}' \

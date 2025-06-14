@@ -1,6 +1,6 @@
 [project]
 name = "collabllm"
-version = "0.0.5"
+version = "0.0.8"
 authors = [
   { name="Shirley Wu", email="shirwu@stanford.edu" },
 ]
@@ -15,7 +15,6 @@ dependencies = [
     "accelerate",
     "bitsandbytes",
     "datasets",
-    "deepspeed",
     "huggingface-hub",
     "litellm",
     "nltk",

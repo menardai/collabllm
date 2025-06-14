@@ -52,6 +52,7 @@ from __future__ import annotations
 
 import os
 import random
+import numpy as np
 from typing import Any, Dict, List, Optional, Sequence, Union
 from collabllm.prompts import SYSTEM_PROMPT
 from datasets import Dataset, DatasetDict, load_dataset, load_from_disk
@@ -260,24 +261,55 @@ class MultiturnDataset:
         self,
         *,
         n_eval: Optional[int] = None,
-        eval_ratio: Optional[float] = 0.0
+        eval_ratio: Optional[float] = 0.0,
+        lower_bound_metric: Optional[str] = None,
+        lower_bound: Optional[float] = 0.0,
     ) -> DatasetDict:
 
-        # Pick the best (largest turn_id, then highest score) per conv_id
-        best: Dict[Any, Dict[str, Any]] = {}
-        for r in self.data:
-            cid = r["conv_id"]
-            cand = best.get(cid)
-            if cand is None or r["turn_id"] > cand["turn_id"] or (
-                r["turn_id"] == cand["turn_id"] and r["score"] > cand["score"]
+        # Select best example per conversation ID: prefer latest turn, then highest score
+        best_examples = {}
+        for row in self.data:
+            cid = row["conv_id"]
+            prev = best_examples.get(cid)
+            if prev is None or row["turn_id"] > prev["turn_id"] or (
+                row["turn_id"] == prev["turn_id"] and row["score"] > prev["score"]
             ):
-                best[cid] = r
+                best_examples[cid] = row
 
-        # Build a list of serialized dialogues
-        texts = [self.sys_msg + row["prompt"] + [{"role": "assistant", "content": row["completion"]}] for row in best.values()]
+        # Build SFT dialogues, filtering by optional metric threshold
+        serialized_dialogues = []
+        for row in best_examples.values():
+            if lower_bound_metric:
+                try:
+                    metric = row
+                    for key in lower_bound_metric.split("."):
+                        metric = metric.get(key, {})
+                    value = np.asarray(metric).mean().item()
+                except Exception as e:
+                    logger.error(f"Failed to extract metric '{lower_bound_metric}' from row: {row} — {e}")
+                    continue
 
-        full_ds = Dataset.from_dict({"messages": texts})
-        return _uniform_split(full_ds, eval_ratio=eval_ratio, n_eval=n_eval, seed=self.seed)
+                if value < lower_bound:
+                    logger.warning(
+                        f"Filtered out conv_id={row['conv_id']} (turn_id={row['turn_id']}) "
+                        f"due to {lower_bound_metric}={value:.3f} < {lower_bound:.3f}"
+                    )
+                    continue
+
+            if not isinstance(row["prompt"], list):
+                raise TypeError("Expected `prompt` to be a list of messages.")
+
+            messages = self.sys_msg + row["prompt"] + [{"role": "assistant", "content": row["completion"]}]
+            serialized_dialogues.append(messages)
+
+        logger.info(
+            f"Converted {len(serialized_dialogues)} dialogues "
+            f"(filter: {lower_bound_metric} ≥ {lower_bound}); "
+            f"retention ratio: {len(serialized_dialogues)/len(best_examples):.2f}"
+        )
+
+        full_dataset = Dataset.from_dict({"messages": serialized_dialogues})
+        return _uniform_split(full_dataset, eval_ratio=eval_ratio, n_eval=n_eval, seed=self.seed)
 
     # ------------------------------------------------------------------ #
     # DPO                                                                #
@@ -359,4 +391,3 @@ class MultiturnDataset:
 
     def __getitem__(self, idx: int):
         return self.data[idx]
-

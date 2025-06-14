@@ -19,13 +19,13 @@ CUDA_VISIBLE_DEVICES=0,1 WANDB__SERVICE_WAIT=300 torchrun --master_port=56400 --
     --logging_steps 1 \
     --wandb_entity dsp-team \
     --wandb_project collabllm \
-    --use_lora --use_4bit
+    --use_lora
 
-w/ Quantization (4-bit) (on 4 NVIDIA A100-SXM4-80GB GPUs):
+w/ Lora & Quantization (4-bit) (on 4 NVIDIA A100-SXM4-80GB GPUs):
 -------
-CUDA_VISIBLE_DEVICES=0,1,2,3 WANDB__SERVICE_WAIT=300 torchrun --master_port=56400 --nnodes=1 --nproc_per_node=4 -m scripts.train.sft \
+CUDA_VISIBLE_DEVICES=0,1,2,3 WANDB__SERVICE_WAIT=300 torchrun --master_port=56800 --nnodes=1 --nproc_per_node=4 -m scripts.train.sft \
     --dataset_repo collabllm/collabllm-multiturn-math-hard \
-    --output_dir outputs/sft-4bit/collabllm-multiturn-math-hard \
+    --output_dir outputs/sft/collabllm-multiturn-math-hard \
     --model_name meta-llama/Llama-3.1-8B-Instruct \
     --per_device_train_batch_size 4 \
     --per_device_eval_batch_size 4 \
@@ -36,7 +36,9 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 WANDB__SERVICE_WAIT=300 torchrun --master_port=5640
     --logging_steps 1 \
     --wandb_entity dsp-team \
     --wandb_project collabllm \
-    --use_lora 
+    --lower_bound_metric "rewards.accuracy" \
+    --lower_bound 0.5 \
+    --use_lora  --use_4bit
 """
 
 from __future__ import annotations
@@ -63,10 +65,12 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser("Parameter-free multiturn SFT trainer")
 
     # Data / paths
-    p.add_argument("--dataset_repo", type=str, required=True)
-    p.add_argument("--eval_ratio",   type=float, default=0.1)
-    p.add_argument("--output_dir",   type=str, required=True)
+    p.add_argument("--dataset_repo",    type=str, required=True)
+    p.add_argument("--output_dir",      type=str, required=True)
     p.add_argument("--resume_ckpt_dir", type=str, default=None)
+    p.add_argument("--eval_ratio",         type=float, default=0.1)
+    p.add_argument("--lower_bound_metric", type=str, default=None)
+    p.add_argument("--lower_bound",        type=float, default=0.0)
 
     # Base / adapter models
     p.add_argument("--model_name", type=str, required=True)
@@ -161,7 +165,9 @@ def main() -> None:
     dist.barrier()
 
     # Dataset
-    ds = MultiturnDataset(args.dataset_repo).to_sft_dataset(eval_ratio=args.eval_ratio)
+    ds = MultiturnDataset(args.dataset_repo).to_sft_dataset(eval_ratio=args.eval_ratio,
+                                                            lower_bound_metric=args.lower_bound_metric,
+                                                            lower_bound=args.lower_bound)
     # Bits-and-bytes
     bnb_cfg = BitsAndBytesConfig(
         load_in_4bit=args.use_4bit,

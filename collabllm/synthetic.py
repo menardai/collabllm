@@ -10,6 +10,7 @@ from collabllm.utils.template import strip_system_prompt
 import logging
 logger = logging.getLogger(__name__)
 
+
 def generate_multiturn_dataset(
     *,
     task_desc: str,
@@ -151,7 +152,7 @@ def generate_multiturn_dataset(
         next_user_msg = sessions[-1][len(chat_history)]["content"]
         chat_history.append({"role": "user", "content": next_user_msg})
 
-        if sim._should_terminate_conversation(chat_history):
+        if sim._should_terminate_conversation(next_user_msg):
             logger.info("Conversation terminated by user.")
             break
         

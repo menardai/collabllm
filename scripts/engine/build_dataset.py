@@ -4,24 +4,46 @@ To run the following, you need:
     - (Optional) Any custom metrics implemented under `examples/metrics`
 
 Example Usage:
+On math-hard:
+-------
     python -m scripts.engine.build_dataset \
         --dataset_name math-hard \
         --metric_names "accuracy" "interactivity" "token_amount" \
-        --metric_weights 1 1 -0.5 \
-        --user_generation_kwargs '{"model": "gpt-4o-mini"}' \
-        --assistant_generation_kwargs '{"model": "gpt-4o", "temperature": 0.6}' \
-        --reward_generation_kwargs '{"model": "claude-3-5-sonnet-latest"}' \
-        --output_dir outputs/multiturn_data \
-        --hf_entity collabllm
-
-    python -m scripts.engine.build_dataset \
-        --dataset_name medium \
-        --metric_names "document->bleu" "interactivity" "token_amount" \
-        --metric_weights 1 1 -0.1 \
+        --metric_weights 1 0.5 -0.5 \
         --user_generation_kwargs '{"model": "gpt-4o"}' \
         --assistant_generation_kwargs '{"model": "gpt-4o", "temperature": 0.8}' \
         --reward_generation_kwargs '{"model": "claude-3-5-sonnet-latest"}' \
         --output_dir outputs/multiturn_data \
+        --train_size 100 \
+        --num_candidate_responses 3 \
+        --hf_entity collabllm
+
+On medium:
+-------
+    python -m scripts.engine.build_dataset \
+        --dataset_name medium \
+        --metric_names "document->bleu" "token_amount" \
+        --metric_weights 1 -0.1 \
+        --user_generation_kwargs '{"model": "gpt-4o"}' \
+        --assistant_generation_kwargs '{"model": "gpt-4o", "temperature": 0.9}' \
+        --reward_generation_kwargs '{"model": "claude-3-5-sonnet-latest"}' \
+        --output_dir outputs/multiturn_data \
+        --train_size 200 \
+        --num_candidate_responses 3 \
+        --hf_entity collabllm
+
+On bigcodebench:
+-------
+    python -m scripts.engine.build_dataset \
+        --dataset_name bigcodebench \
+        --metric_names "runnable code->pass_rate" "token_amount" \
+        --metric_weights 1 -0.5 \
+        --user_generation_kwargs '{"model": "gpt-4o"}' \
+        --assistant_generation_kwargs '{"model": "gpt-4o", "temperature": 0.8}' \
+        --reward_generation_kwargs '{"model": "claude-3-5-sonnet-latest"}' \
+        --output_dir outputs/multiturn_data \
+        --train_size 200 \
+        --num_candidate_responses 3 \
         --hf_entity collabllm
 """
 

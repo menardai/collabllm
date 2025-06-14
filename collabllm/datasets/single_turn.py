@@ -65,14 +65,15 @@ class SingleTurnDataset:
             }
         else:
             # Create random train/eval split
+
             random.seed(self.seed)
-            indices = list(range(len(self.data)))
-            random.shuffle(indices)
-            
             eval_size = int(len(self.data) * self.eval_ratio)
+            eval_indices = random.sample(range(len(self.data)), k=min(eval_size, len(self.data)))
+            train_indices = list(set(range(len(self.data))) - set(eval_indices))
+            
             split_indices = {
-                'train': indices[eval_size:],
-                'eval': indices[:eval_size]
+                'train': train_indices,
+                'eval': eval_indices
             }
         
         # Build metadata fields (exclude prompt, completion, and split)

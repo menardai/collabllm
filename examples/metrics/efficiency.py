@@ -18,9 +18,8 @@ class TokenAmountMetric(BaseMetric):
     Counts assistant / user tokens (in k-tokens) and dialogue turns.
     """
 
-    def __init__(self, encoding_name: str = "cl100k_base", clip: float = 2.0):
+    def __init__(self, encoding_name: str = "cl100k_base"):
         self.encoding_name = encoding_name
-        self.clip = clip
 
     def score(
         self,
@@ -41,5 +40,5 @@ class TokenAmountMetric(BaseMetric):
             "num_tokens_typed(k)": num_tokens_from_string(user_text, self.encoding_name) / 1000.0,
             "num_turns": float(len(messages) // 2),
         }
-        return min(full_results["num_tokens_read(k)"], self.clip)
+        return full_results["num_tokens_read(k)"]
 

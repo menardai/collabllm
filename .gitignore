@@ -1,6 +1,6 @@
 __pycache__
-outputs/
-wandb/
+outputs
+wandb
 .env
 *egg-info
-dist/
+dist

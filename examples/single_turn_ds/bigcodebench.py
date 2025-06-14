@@ -84,6 +84,7 @@ class BigCodeBench(SingleTurnDataset):
                     "task_id": row["task_id"],
                     "entry_point": row["entry_point"],
                     "test": row["test"],
+                    "extraction_requirement": f"Your extraction should be executable code without any the need of processing. You should start with the following code:\n\n{row['code_prompt']}\n"
                 }
             )
 

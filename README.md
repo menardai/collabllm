@@ -16,7 +16,6 @@
 CollabLLM transforms traditional language models from passive responders to active collaborators in multi-turn conversations. This repository provides the complete framework for computing multiturn-aware rewards and training collaborative language models.
 
 ---
-
 ## Installation
 
 To get started, create a new environment and install `collabllm` via [pip](https://pypi.org/project/collabllm/):
@@ -26,7 +25,16 @@ conda create -n collabllm python=3.10
 conda activate collabllm
 pip install collabllm
 ```
-Optional: You may install additional packages (e.g., `bigcodebench`) for task-specific metrics or evaluation.
+
+### Optional: For distributed training
+If you need distributed training:
+
+```bash
+conda install deepspeed mpi4py -c conda-forge
+```
+
+### Optional: For customized datasets and metrics
+You may install additional packages (e.g., `pip install bigcodebench matplotlib`) for task-specific metrics or evaluation.
 
 # Quick Start
 

@@ -12,7 +12,7 @@ def parse_messages(messages, strip_sys_prompt=True):
         messages = strip_system_prompt(messages)
     
     chat = "\n".join(
-        f"{m['role'].capitalize()}: {m['content']}" for m in messages
+        f"**{m['role'].capitalize()}**: {m['content']}" for m in messages
     )
 
     return chat

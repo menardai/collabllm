@@ -56,9 +56,9 @@ class AccuracyMetric(BaseMetric):
     Calls an LLM to judge factual accuracy against a provided ground-truth answer.
     """
 
-    def __init__(self, num_retries=10, **llm_kwargs):
-        # Force deterministic output unless user overrides.
+    def __init__(self, num_retries: int = 50, retry_after: int = 60, **llm_kwargs):
         self.num_retries = num_retries
+        self.retry_after = retry_after
         self.llm_kwargs: Dict[str, Any] = {"temperature": 0.0, **llm_kwargs}
 
     # --------------------------------------------------------------------- #
@@ -115,10 +115,16 @@ class AccuracyMetric(BaseMetric):
         # 3) Call the judge LLM                                              #
         # ------------------------------------------------------------------ #
 
-        for _ in range(self.num_retries):
-            full_response = litellm.completion(
-                **self.llm_kwargs, messages=[{"role": "user", "content": eval_prompt}], num_retries=self.num_retries
-            ).choices[0].message.content
+        for i in range(self.num_retries):
+            try:
+                full_response = litellm.completion(
+                    **self.llm_kwargs, messages=[{"role": "user", "content": eval_prompt}], num_retries=self.num_retries
+                ).choices[0].message.content
+            except Exception as e:
+                import time
+                time.sleep(self.retry_after)
+                logger.error(f"[retry={i + 1}] Error during LLM call: {e}")
+                continue
 
             # ------------------------------------------------------------------ #
             # 4) Parse JSON                                                      #

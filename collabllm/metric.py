@@ -76,7 +76,7 @@ class SingleTurnOrChatMetric:
     ) -> Dict[str, float]:
         """Main entry-point."""
         if self.extract_type:
-            completion = self._extract_final_completion(messages)
+            completion = self._extract_final_completion(messages, metadata)
         else:
             completion = None
 
@@ -89,15 +89,16 @@ class SingleTurnOrChatMetric:
 
     def _extract_final_completion(
         self,
-        messages: List[Dict[str, str]]
+        messages: List[Dict[str, str]],
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Ask an LLM to distil the final artefact from `messages`."""
+        prefix_msg = "Addtional requirement:\n" if metadata and "extraction_requirement" in metadata else ""
         prompt = EXTRACT_MULTITURN_COMPLETION_PROMPT.format(
             extract_type=self.extract_type,
             chat_history=parse_messages(messages, strip_sys_prompt=True),
+            extraction_requirement=prefix_msg + metadata.get("extraction_requirement", ""),
         )
-
-        logger.debug("Extraction prompt:\n%s", prompt)
 
         response = litellm.completion(
             **self.llm_kwargs, messages=[{"role": "user", "content": prompt}]
@@ -130,7 +131,9 @@ class SingleTurnOrChatMetric:
 
         def _decorator(metric_cls: type[BaseMetric]):
             if name in cls._METRIC_REGISTRY:
-                raise ValueError(f"Metric '{name}' already registered.")
+                logger.warning(
+                    f"Overwriting existing metric '{name}' with {metric_cls.__name__}."
+                )
             cls._METRIC_REGISTRY[name] = metric_cls
             return metric_cls
 

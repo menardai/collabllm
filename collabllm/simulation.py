@@ -148,6 +148,7 @@ class ChatSessionSimulator:
             if not asst_idx:
                 continue
 
+                
             # --- generate assistant replies (batched or threaded) --- #
             if local_model is None and vllm_base_model is None:
                 num_asst = len(asst_idx)
@@ -419,7 +420,6 @@ class ChatSessionSimulator:
     
     def _log_response(self, role: str, response: str) -> None:
         """Log the response if verbose mode is enabled and on main process."""
-        if os.environ.get('RANK', '0') == '0':
-            logger.info(f'{role.capitalize()}: {response}')
+        logger.info(f"[rank {os.environ.get('RANK', 0)}]{role.capitalize()}: {response}")
 
 

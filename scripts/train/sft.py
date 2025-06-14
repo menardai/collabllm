@@ -1,14 +1,32 @@
 #!/usr/bin/env python3
 """
-Preparation: To run the following, you need to generate multiturn data from `scripts/generate_reward_guided_multiturn_conv.py`
+Preparation: To run the following, you need to generate multiturn data from `scripts.engine.build_dataset`
 
 Fine-tune or SFT a causal-LM + LoRA adapter on a multi-turn dataset.
-Example (on 4 NVIDIA A100-SXM4-80GB GPUs):
+Examples:
+w/ Lora (on 2 NVIDIA A100-SXM4-80GB GPUs):
 -------
-CUDA_VISIBLE_DEVICES=1,2,3,4 WANDB__SERVICE_WAIT=300 torchrun --master_port=56400 --nnodes=1 --nproc_per_node=4 -m scripts.train.sft \
-    --dataset_repo collabllm/collabllm-multiturn-math-hard \
+CUDA_VISIBLE_DEVICES=0,1 WANDB__SERVICE_WAIT=300 torchrun --master_port=56400 --nnodes=1 --nproc_per_node=2 -m scripts.train.sft \
+    --dataset_repo collabllm/collabllm-multiturn-medium \
+    --output_dir outputs/sft/collabllm-multiturn-medium \
     --model_name meta-llama/Llama-3.1-8B-Instruct \
+    --per_device_train_batch_size 4 \
+    --per_device_eval_batch_size 4 \
+    --gradient_accumulation_steps 8 \
+    --num_train_epochs 3 \
+    --learning_rate 1e-5 \
+    --eval_steps 1 \
+    --logging_steps 1 \
+    --wandb_entity dsp-team \
+    --wandb_project collabllm \
+    --use_lora
+
+w/ Lora & Quantization (4-bit) (on 4 NVIDIA A100-SXM4-80GB GPUs):
+-------
+CUDA_VISIBLE_DEVICES=0,1,2,3 WANDB__SERVICE_WAIT=300 torchrun --master_port=56800 --nnodes=1 --nproc_per_node=4 -m scripts.train.sft \
+    --dataset_repo collabllm/collabllm-multiturn-math-hard \
     --output_dir outputs/sft/collabllm-multiturn-math-hard \
+    --model_name meta-llama/Llama-3.1-8B-Instruct \
     --per_device_train_batch_size 4 \
     --per_device_eval_batch_size 4 \
     --gradient_accumulation_steps 4 \
@@ -18,7 +36,9 @@ CUDA_VISIBLE_DEVICES=1,2,3,4 WANDB__SERVICE_WAIT=300 torchrun --master_port=5640
     --logging_steps 1 \
     --wandb_entity dsp-team \
     --wandb_project collabllm \
-    --use_4bit
+    --lower_bound_metric "rewards.accuracy" \
+    --lower_bound 0.5 \
+    --use_lora  --use_4bit
 """
 
 from __future__ import annotations
@@ -32,6 +52,7 @@ from transformers import (
     AutoTokenizer,
     BitsAndBytesConfig,
 )
+import torch.distributed as dist
 from peft import PeftConfig, PeftModel, LoraConfig, get_peft_model
 from collabllm.datasets.multiturn import MultiturnDataset
 from trl import SFTConfig, SFTTrainer
@@ -44,10 +65,12 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser("Parameter-free multiturn SFT trainer")
 
     # Data / paths
-    p.add_argument("--dataset_repo", type=str, required=True)
-    p.add_argument("--eval_ratio",   type=float, default=0.1)
-    p.add_argument("--output_dir",   type=str, required=True)
+    p.add_argument("--dataset_repo",    type=str, required=True)
+    p.add_argument("--output_dir",      type=str, required=True)
     p.add_argument("--resume_ckpt_dir", type=str, default=None)
+    p.add_argument("--eval_ratio",         type=float, default=0.1)
+    p.add_argument("--lower_bound_metric", type=str, default=None)
+    p.add_argument("--lower_bound",        type=float, default=0.0)
 
     # Base / adapter models
     p.add_argument("--model_name", type=str, required=True)
@@ -71,7 +94,8 @@ def parse_args() -> argparse.Namespace:
 
     # Precision / hardware
     p.add_argument("--device", type=str, default="cuda")
-    p.add_argument("--use_4bit", action="store_true")
+    p.add_argument("--use_lora", action="store_true", default=False)
+    p.add_argument("--use_4bit", action="store_true", default=False)
 
     # Tracking
     p.add_argument("--wandb_project", type=str)
@@ -135,8 +159,15 @@ def main() -> None:
     args = parse_args()
     os.makedirs(args.output_dir, exist_ok=True)
 
+    local_rank = int(os.environ['LOCAL_RANK'])
+    dist.init_process_group(backend='nccl', init_method=None)
+    torch.cuda.set_device(local_rank)
+    dist.barrier()
+
     # Dataset
-    ds = MultiturnDataset(args.dataset_repo).to_sft_dataset(eval_ratio=args.eval_ratio)
+    ds = MultiturnDataset(args.dataset_repo).to_sft_dataset(eval_ratio=args.eval_ratio,
+                                                            lower_bound_metric=args.lower_bound_metric,
+                                                            lower_bound=args.lower_bound)
     # Bits-and-bytes
     bnb_cfg = BitsAndBytesConfig(
         load_in_4bit=args.use_4bit,
@@ -149,12 +180,11 @@ def main() -> None:
     lora_cfg = LoraConfig(
         r=args.peft_r,
         lora_alpha=args.peft_alpha,
-        lora_dropout=args.peft_dropout,
         bias="none",
         task_type="CAUSAL_LM",
         init_lora_weights="gaussian",
         target_modules=args.target_modules.split(","),
-    )
+    ) if args.use_lora else None
 
     # Load model
     model, tok = load_model_and_tokenizer(
@@ -230,7 +260,6 @@ def main() -> None:
         peft_config=lora_cfg,
         args=train_cfg,
     )
-    trainer.model.print_trainable_parameters()
     trainer.train(resume_from_checkpoint=args.resume_ckpt_dir)
 
     trainer.save_model(args.output_dir)
@@ -245,4 +274,5 @@ def main() -> None:
         wandb.finish()
 
 if __name__ == "__main__":
+
     main()

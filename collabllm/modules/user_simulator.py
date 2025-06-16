@@ -2,9 +2,8 @@ from typing import List
 import logging
 import litellm
 
-from collabllm import ENABLE_COLLABLLM_LOGGING
 from collabllm.prompts import USER_SIMULATOR_PROMPT, COLLABLLM_TERMINATION_SIGNAL
-from collabllm.utils.template import parse_messages, strip_system_prompt
+from collabllm.utils.template import parse_messages
 from collabllm.utils.extract_json_reliable import extract_json
 logger = logging.getLogger(__name__)
 

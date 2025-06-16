@@ -11,9 +11,8 @@ from __future__ import annotations
 
 import logging
 import statistics as stats
-from typing import Any, Dict, List, Sequence, Optional, Tuple
+from typing import Any, Dict, List, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from collabllm.metric import SingleTurnOrChatMetric
 from collabllm.simulation import ChatSessionSimulator

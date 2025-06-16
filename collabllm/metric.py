@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import litellm
 from collabllm.prompts import EXTRACT_MULTITURN_COMPLETION_PROMPT
-from collabllm.utils.template import parse_messages, strip_system_prompt
+from collabllm.utils.template import parse_messages
 from collabllm.utils.extract_json_reliable import extract_json
 
 logger = logging.getLogger(__name__)

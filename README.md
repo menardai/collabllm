@@ -30,7 +30,8 @@ pip install collabllm
 If you need distributed training:
 
 ```bash
-conda install deepspeed mpi4py -c conda-forge
+pip install deepspeed
+conda install mpi4py
 ```
 
 ### Optional: For customized datasets and metrics
@@ -39,8 +40,8 @@ You may install additional packages (e.g., `pip install bigcodebench matplotlib`
 # Quick Start
 
 - Lightweight usage: Compute Multiturn-aware Rewards (MRs) for any model responses and construct datasets following `notebook_tutorials/`.
-- Synthetic data generation: Generating high-quality synthetic conversational data following `scripts/engine/build_dataset.py`.
-- Train CollabLLM: Conduct SFT/DPO/PPO models training to maximize MRs following examples under `scripts/train/*.py`.
+- Synthetic data generation: Generating high-quality synthetic conversational data following `scripts/engine/build_dataset.py`. (Include your API keys in `.env` file)
+- Train CollabLLM: Conduct SFT/DPO models training to maximize MRs following examples under `scripts/train/*.py`. 
 
 
 ## Add Your Own Task

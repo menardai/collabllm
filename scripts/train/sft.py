@@ -25,7 +25,7 @@ w/ Lora & Quantization (4-bit) (on 4 NVIDIA A100-SXM4-80GB GPUs):
 -------
 CUDA_VISIBLE_DEVICES=0,1,2,3 WANDB__SERVICE_WAIT=300 torchrun --master_port=56800 --nnodes=1 --nproc_per_node=4 -m scripts.train.sft \
     --dataset_repo collabllm/collabllm-multiturn-math-hard \
-    --output_dir outputs/sft/collabllm-multiturn-math-hard \
+    --output_dir outputs/debug/collabllm-multiturn-math-hard \
     --model_name meta-llama/Llama-3.1-8B-Instruct \
     --per_device_train_batch_size 4 \
     --per_device_eval_batch_size 4 \

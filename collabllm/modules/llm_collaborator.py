@@ -2,10 +2,9 @@ from typing import List
 import logging
 import litellm
 
-from collabllm import ENABLE_COLLABLLM_LOGGING
 from collabllm.utils.template import parse_messages
 from collabllm.utils.extract_json_reliable import extract_json
-from collabllm.prompts import SYSTEM_PROMPT, PROACT_MODEL_PROMPT
+from collabllm.prompts import PROACT_MODEL_PROMPT
 
 logger = logging.getLogger(__name__)
 

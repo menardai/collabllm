@@ -195,7 +195,7 @@ def main() -> None:
     os.makedirs(args.output_dir, exist_ok=True)
 
     # Imporant for initializing vllm base model per GPU
-    local_rank = int(os.environ['LOCAL_RANK'])
+    local_rank = int(os.environ.get('LOCAL_RANK', '0'))
     dist.init_process_group(backend='nccl', init_method=None)
     torch.cuda.set_device(local_rank)
     dist.barrier()

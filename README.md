@@ -10,7 +10,7 @@
 
 </div>
 
-📢 Oustanding @ ICML 2025
+📢 Oustanding Paper Award @ ICML 2025
 
 # Overview
 CollabLLM transforms traditional language models from passive responders to active collaborators in multi-turn conversations. This repository provides the complete framework for computing multiturn-aware rewards and training collaborative language models.

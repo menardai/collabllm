@@ -56,8 +56,8 @@ from transformers import (
 from peft import PeftConfig, PeftModel, LoraConfig, get_peft_model
 from collabllm.datasets.multiturn import MultiturnDataset
 from collabllm.reward import multiturn_aware_reward
-from examples.single_turn_ds import datasets_info
 from collabllm.simulation import ChatSessionSimulator
+from examples.single_turn_ds import datasets_info
 from examples.metrics import *
 
 # --------------------------------------------------------------------------- #

@@ -32,7 +32,7 @@ dependencies = [
     "tqdm",
     "trl>0.18",
     "transformers",
-    "vllm",
+    "vllm>=0.9",
     "wandb",
 ]
 license = "MIT"

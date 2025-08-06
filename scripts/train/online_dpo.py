@@ -175,6 +175,7 @@ def load_model_and_tokenizer(
             model=base_model_name,
             dtype="bfloat16" if torch.cuda.is_bf16_supported() else "float16",
             quantization="bitsandbytes" if bnb_cfg else None,
+            load_format="bitsandbytes" if bnb_cfg else None,
             enable_lora=True if lora_cfg else False,
             max_lora_rank=lora_cfg.r if lora_cfg else None,
             # Use `distributed_executor_backend="external_launcher"` so that

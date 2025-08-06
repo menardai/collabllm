@@ -2,16 +2,17 @@
 """
 PPO training script for multiturn conversation models.
 Example usage:
-ENABLE_COLLABLLM_LOGGING=0 LLM_USE_V1=1 VLLM_ENABLE_V1_MULTIPROCESSING=0 WANDB__SERVICE_WAIT=300 CUDA_VISIBLE_DEVICES=6,7 \
-    torchrun --master_port=56600 --nnodes=1 --nproc_per_node=2 -m scripts.train.ppo \
+
+ENABLE_COLLABLLM_LOGGING=0 LLM_USE_V1=1 VLLM_ENABLE_V1_MULTIPROCESSING=0 WANDB__SERVICE_WAIT=300 CUDA_VISIBLE_DEVICES=4,5,6,7 \
+    torchrun --master_port=56600 --nnodes=1 --nproc_per_node=4 -m scripts.train.ppo \
     --dataset_name math-hard \
     --metric_names "accuracy" "token_amount" \
     --metric_weights 1 -0.5 \
     --user_generation_kwargs '{"model": "gpt-4o-mini"}' \
-    --assistant_generation_kwargs '{"model": "sft-math-hard-Llama-3.1-8B-Instruct", "temperature": 0.6, "max_new_tokens": 512}' \
+    --assistant_generation_kwargs '{"model": "sft-math-hard-Llama-3.1-8B-Instruct", "temperature": 0.6, "max_tokens": 256}' \
     --reward_generation_kwargs '{"model": "claude-3-5-sonnet-latest"}' \
     --dataset_repo collabllm/collabllm-multiturn-math-hard \
-    --model_name meta-llama/Llama-3.1-8B-Instruct \
+    --model_name outputs/sft/collabllm-multiturn-math-hard \
     --base_model_name meta-llama/Llama-3.1-8B-Instruct \
     --output_dir outputs/ppo/collabllm-multiturn-math-hard \
     --batch_size 1 \
@@ -25,9 +26,10 @@ ENABLE_COLLABLLM_LOGGING=0 LLM_USE_V1=1 VLLM_ENABLE_V1_MULTIPROCESSING=0 WANDB__
     --logging_steps 1 \
     --wandb_entity dsp-team \
     --wandb_project collabllm \
-    --num_samples 1 \
-    --max_new_turns 1 \
+    --num_samples 3 \
+    --max_new_turns 4 \
     --max_metric_workers 2 \
+    --use_lora \
     --use_4bit
 """
 from __future__ import annotations
@@ -42,13 +44,15 @@ from datetime import timedelta
 import numpy as np
 import copy
 from tqdm import tqdm
+from packaging import version
 
 import trl
 from trl import AutoModelForCausalLMWithValueHead, PPOConfig, PPOTrainer
-from packaging import version
 
 if version.parse(trl.__version__) > version.parse("0.10.1"):
     raise RuntimeError(f"For this script, `trl` version {trl.__version__} is incompatible. Please install trl<-0.10.1 to run this script.")
+
+from peft import PeftConfig, PeftModel, LoraConfig, get_peft_model
 
 import torch
 from transformers import (
@@ -56,7 +60,6 @@ from transformers import (
     AutoTokenizer,
     BitsAndBytesConfig,
 )
-from peft import PeftConfig, PeftModel, LoraConfig, get_peft_model
 from collabllm.datasets.multiturn import MultiturnDataset
 from collabllm.reward import multiturn_aware_reward
 from collabllm.simulation import ChatSessionSimulator
@@ -109,7 +112,6 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--logging_steps", type=int, default=1)
     p.add_argument("--max_model_len", type=int, default=4096)
     p.add_argument("--max_metric_workers", type=int, default=4)
-    p.add_argument("--window_size", type=int, default=2)
     
     # Generation parameters
     p.add_argument("--top_p", type=float, default=0.9)
@@ -158,29 +160,26 @@ def load_model_and_tokenizer(
     if os.path.exists(model_name):
         model = AutoModelForCausalLMWithValueHead.from_pretrained(
             model_name,
-            trust_remote_code=True,
             device_map={"": device},
             quantization_config=bnb_cfg,
-            peft_config=lora_cfg
+            is_trainable=not is_eval
         )
-        tok = AutoTokenizer.from_pretrained(base_model_name, trust_remote_code=True)
     else:
         model = AutoModelForCausalLMWithValueHead.from_pretrained(
-            model_name,
+            base_model_name,
             trust_remote_code=True,
             device_map={"": device},
-            quantization_config=bnb_cfg,
             peft_config=lora_cfg,
+            quantization_config=bnb_cfg,
             is_trainable=not is_eval,
         )
-        tok = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+    tok = AutoTokenizer.from_pretrained(base_model_name, trust_remote_code=True)
 
     tok.padding_side, tok.pad_token = ("left" if is_eval else "right"), tok.eos_token
     trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
     total     = sum(p.numel() for p in model.parameters())
     print(f"Trainable params: {trainable:,}/{total:,} ({trainable/total:.2%})")
 
-    vllm_base_model = None
     try:
         from vllm import LLM
 
@@ -188,6 +187,7 @@ def load_model_and_tokenizer(
             model=base_model_name,
             dtype="bfloat16" if torch.cuda.is_bf16_supported() else "float16",
             quantization="bitsandbytes" if bnb_cfg else None,
+            load_format="bitsandbytes" if bnb_cfg else None,
             enable_lora=True if lora_cfg else False,
             max_lora_rank=lora_cfg.r if lora_cfg else None,
             # Use `distributed_executor_backend="external_launcher"` so that
@@ -221,7 +221,7 @@ def main() -> None:
 
     # Bits-and-bytes
     bnb_cfg = BitsAndBytesConfig(
-        load_in_4bit=args.use_4bit,
+        load_in_4bit=True,
         bnb_4bit_quant_type="nf4",
         bnb_4bit_use_double_quant=False,
         bnb_4bit_compute_dtype=torch.bfloat16,
@@ -263,15 +263,15 @@ def main() -> None:
         )
 
     # W&B
-    if args.wandb_project and os.environ.get("LOCAL_RANK", "0") == "0":
-        wandb.init(
-            project=args.wandb_project,
-            entity=args.wandb_entity,
-            name=args.output_dir.replace("/", "_"),
-            config=vars(args),
-            save_code=True,
-            job_type="train",
-        )
+    # if args.wandb_project and os.environ.get("LOCAL_RANK", "0") == "0":
+    #     wandb.init(
+    #         project=args.wandb_project,
+    #         entity=args.wandb_entity,
+    #         name=args.output_dir.replace("/", "_"),
+    #         config=vars(args),
+    #         save_code=True,
+    #         job_type="train",
+    #     )
 
     # PPO Config
     ppo_config = PPOConfig(
@@ -420,6 +420,8 @@ def main() -> None:
         batch["rewards"] = rewards
         
         # Run PPO step
+        torch.cuda.empty_cache()
+
         stats = trainer.step(prompt_ids, completion_ids, rewards)
         trainer.log_stats(stats, batch, rewards, columns_to_log=["prompt", "responses", "rewards"])
         
@@ -441,8 +443,8 @@ def main() -> None:
         trainer.push_to_hub(f"{args.hf_org}/{repo}", private=True)
         tok.push_to_hub(f"{args.hf_org}/{repo}", private=True)
 
-    if args.wandb_project:
-        wandb.finish()
+    # if args.wandb_project:
+    #     wandb.finish()
 
 if __name__ == "__main__":
     load_dotenv(".env")

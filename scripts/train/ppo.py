@@ -264,15 +264,15 @@ def main() -> None:
         )
 
     # W&B
-    # if args.wandb_project and os.environ.get("LOCAL_RANK", "0") == "0":
-    #     wandb.init(
-    #         project=args.wandb_project,
-    #         entity=args.wandb_entity,
-    #         name=args.output_dir.replace("/", "_"),
-    #         config=vars(args),
-    #         save_code=True,
-    #         job_type="train",
-    #     )
+    if args.wandb_project and os.environ.get("LOCAL_RANK", "0") == "0":
+        wandb.init(
+            project=args.wandb_project,
+            entity=args.wandb_entity,
+            name=args.output_dir.replace("/", "_"),
+            config=vars(args),
+            save_code=True,
+            job_type="train",
+        )
 
     # PPO Config
     ppo_config = PPOConfig(
@@ -444,8 +444,8 @@ def main() -> None:
         trainer.push_to_hub(f"{args.hf_org}/{repo}", private=True)
         tok.push_to_hub(f"{args.hf_org}/{repo}", private=True)
 
-    # if args.wandb_project:
-    #     wandb.finish()
+    if args.wandb_project:
+        wandb.finish()
 
 if __name__ == "__main__":
     load_dotenv(".env")

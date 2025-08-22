@@ -21,9 +21,10 @@ CollabLLM transforms traditional language models from passive responders to acti
 To get started, create a new environment and install `collabllm` via [pip](https://pypi.org/project/collabllm/):
 
 ```bash
-conda create -n collabllm python=3.10
-conda activate collabllm
-pip install collabllm
+uv venv .venv
+source .venv/bin/activate
+uv pip install -r requirements_macos.txt
+uv pip install .
 ```
 
 ### Optional: For distributed training

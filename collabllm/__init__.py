@@ -10,8 +10,8 @@ from __future__ import annotations
 import errno
 import logging
 import os
-from distutils.util import strtobool
 from pathlib import Path
+import sys
 
 # --------------------------------------------------------------------------- #
 # Public package metadata                                                     #
@@ -28,6 +28,18 @@ __all__ = [
 # --------------------------------------------------------------------------- #
 # Utility: boolean env-var parser                                             #
 # --------------------------------------------------------------------------- #
+def _str_to_bool(value: str) -> int:
+    """
+    Local replacement for distutils.util.strtobool (removed in Python 3.12).
+    Returns 1 for truthy strings and 0 for falsy strings.
+    """
+    val = str(value).strip().lower()
+    if val in ("y", "yes", "t", "true", "on", "1"):
+        return 1
+    if val in ("n", "no", "f", "false", "off", "0"):
+        return 0
+    raise ValueError(f"invalid truth value {value!r}")
+
 def _env_flag(name: str, default: str = "1") -> bool:
     """
     Convert an environment variable to bool.
@@ -36,10 +48,10 @@ def _env_flag(name: str, default: str = "1") -> bool:
     Falsy  strings : "0", "false", "no", "off"
     """
     try:
-        return bool(strtobool(os.getenv(name, default)))
+        return bool(_str_to_bool(os.getenv(name, default)))
     except ValueError:
         # Invalid value; fall back to default.
-        return bool(strtobool(default))
+        return bool(_str_to_bool(default))
 
 
 # --------------------------------------------------------------------------- #
@@ -93,21 +105,48 @@ def _resolve_run_user_dir() -> Path:
     if env_val:
         return Path(env_val).expanduser()
 
-    # 2) fall back to XDG-runtime-style path
+    # 2) choose a sensible OS-specific default
+    # macOS: ~/Library/Caches/collabllm
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Caches" / "collabllm"
+
+    # Windows: %LOCALAPPDATA%\collabllm (fallback to ~/AppData/Local)
+    if os.name == "nt":
+        base = os.getenv("LOCALAPPDATA") or (Path.home() / "AppData" / "Local")
+        return Path(base) / "collabllm"
+
+    # Linux/Unix: prefer XDG_RUNTIME_DIR, otherwise /run/user/{uid}/collabllm
+    xdg_runtime = os.getenv("XDG_RUNTIME_DIR")
+    if xdg_runtime:
+        return Path(xdg_runtime) / "collabllm"
     return Path(_DEFAULT_RUN_DIR.format(uid=os.getuid()))
 
 RUN_USER_DIR: Path = _resolve_run_user_dir()
 os.environ["RUN_USER_DIR"] = str(RUN_USER_DIR) 
 
+def _fallback_cache_dir() -> Path:
+    # macOS: ~/Library/Caches/collabllm
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Caches" / "collabllm"
+    # Windows: %LOCALAPPDATA%\collabllm
+    if os.name == "nt":
+        base = os.getenv("LOCALAPPDATA") or (Path.home() / "AppData" / "Local")
+        return Path(base) / "collabllm"
+    # Linux/Unix: $XDG_CACHE_HOME/collabllm or ~/.cache/collabllm
+    base = os.getenv("XDG_CACHE_HOME") or (Path.home() / ".cache")
+    return Path(base) / "collabllm"
+
 try:
     RUN_USER_DIR.mkdir(parents=True, exist_ok=True)
 except OSError as exc:
-    if exc.errno in {errno.EACCES, errno.ENOENT}:
-        fallback = Path.home() / ".cache" / "collabllm"
+    # Recover on read-only filesystems or permission/path issues
+    if exc.errno in {errno.EACCES, errno.ENOENT, errno.EROFS, errno.EPERM}:
+        fallback = _fallback_cache_dir()
         fallback.mkdir(parents=True, exist_ok=True)
         _pkg_logger.warning(
             "Cannot access %s; using %s instead.", RUN_USER_DIR, fallback
         )
         RUN_USER_DIR = fallback
+        os.environ["RUN_USER_DIR"] = str(RUN_USER_DIR)
     else:
         raise

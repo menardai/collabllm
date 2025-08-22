@@ -1,5 +1,5 @@
 #! /bin/bash
-cd /data/src/collabllm
+cd /data/collabllm
 CUDA_VISIBLE_DEVICES=0 WANDB__SERVICE_WAIT=300 torchrun --master_port=56500 --nnodes=1 --nproc_per_node=1 -m scripts.train.offline_dpo \
     --dataset_repo collabllm/collabllm-multiturn-medium \
     --model_name meta-llama/Llama-3.2-3B-Instruct \

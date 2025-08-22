@@ -13,7 +13,7 @@ ln -snf /usr/share/zoneinfo/America/Montreal /etc/localtime
 echo "America/Montreal" > /etc/timezone
 
 # --- Config (edit these later) ---
-OPENAI_KEY="sk-proj-...YQgsA"
+OPENAI_KEY="fake_key"
 VENV_DIR="/data/venvs/"
 REPO_DIR="/data/collabllm"
 

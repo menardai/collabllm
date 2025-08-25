@@ -278,7 +278,9 @@ def main() -> None:
         fp16=not torch.cuda.is_bf16_supported(), 
         bf16=torch.cuda.is_bf16_supported(),
         precompute_ref_log_probs=True,
-        group_by_length=True,
+        # Disable length-based grouping since our dataset items are not tokenized
+        # and thus do not contain 'input_ids' for automatic length inference.
+        group_by_length=False,
     )
 
     # W&B

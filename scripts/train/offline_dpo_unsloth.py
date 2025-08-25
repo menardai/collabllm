@@ -208,6 +208,8 @@ def main() -> None:
     dist.barrier()
 
     # Dataset
+    if os.environ.get("LOCAL_RANK", "0") == "0":
+        print(f"[debug] --dataset_repo: {args.dataset_repo}")
     ds = MultiturnDataset(args.dataset_repo).to_dpo_dataset(eval_ratio=args.eval_ratio, minimum_gap=args.minimum_gap)
 
     # Bits-and-bytes

@@ -45,6 +45,14 @@ from typing import Tuple, Optional
 
 import torch
 
+# Some xFormers/Flash-Attn kernels do not support the BMGHK format Unsloth can use.
+# Force-disable memory efficient attention so we fall back to SDPA/math backends.
+os.environ.setdefault("XFORMERS_FORCE_DISABLE_MEMORY_EFFICIENT_ATTENTION", "1")
+# Prefer PyTorch SDPA math backend via environment flags (works across versions)
+os.environ.setdefault("PYTORCH_SDP_USE_FLASH_ATTENTION", "0")
+os.environ.setdefault("PYTORCH_SDP_USE_MEM_EFFICIENT_ATTENTION", "0")
+os.environ.setdefault("PYTORCH_SDP_USE_MATH", "1")
+
 try:
     from unsloth import FastLanguageModel
 except Exception:  # pragma: no cover - optional dependency

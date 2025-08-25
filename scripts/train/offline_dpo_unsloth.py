@@ -239,6 +239,11 @@ def main() -> None:
         is_eval=False,
         max_seq_length=args.max_seq_length,
     )
+    # Ensure model-level gradient checkpointing is enabled to match Trainer settings
+    try:
+        model.gradient_checkpointing_enable()
+    except Exception:
+        pass
 
     # DeepSpeed zero
     ds_cfg = {
@@ -271,7 +276,7 @@ def main() -> None:
         eval_steps=args.eval_steps, 
         save_strategy='epoch',
         eval_strategy="steps",
-        gradient_checkpointing=False,  # Disable to avoid attention backend conflicts  
+        gradient_checkpointing=True,
         lr_scheduler_type="cosine",
         metric_for_best_model="eval_loss",
         warmup_ratio=args.warmup_ratio,

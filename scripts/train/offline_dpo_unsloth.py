@@ -158,7 +158,16 @@ def load_model_and_tokenizer(
             # Force SDPA attention to avoid xFormers BMGHK kernel issues
             attn_implementation="sdpa",
         )
-        # For training mode
+        # Ensure Unsloth uses non-xFormers attention backends during training
+        try:
+            FastLanguageModel.for_training(
+                model,
+                use_gradient_checkpointing="unsloth",
+                use_flash_attention_2=False,
+                use_xformers_attn=False,
+            )
+        except Exception:
+            pass
         # Unsloth enables the right hooks internally when creating the PEFT model
     else:
         # Fallback to regular HF loading (full precision or 8-bit/none)

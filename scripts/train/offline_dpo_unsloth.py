@@ -201,8 +201,10 @@ def main() -> None:
     os.makedirs(args.output_dir, exist_ok=True)
 
     local_rank = int(os.environ['LOCAL_RANK'])
+    # Set device first to avoid NCCL warnings about unknown device mapping
+    if torch.cuda.is_available():
+        torch.cuda.set_device(local_rank)
     dist.init_process_group(backend='nccl', init_method=None)
-    torch.cuda.set_device(local_rank)
     dist.barrier()
 
     # Dataset

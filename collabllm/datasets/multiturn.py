@@ -128,8 +128,26 @@ class MultiturnDataset:
             ds_dict = load_from_disk(str(data_or_local_dir_or_hf_repo_or_nested))  # type: ignore
             raw_list = [dict(r) for r in ds_dict.flatten()]
         else:
-            ds_dict = load_dataset(str(data_or_local_dir_or_hf_repo_or_nested), trust_remote_code=True)  # type: ignore
-            raw_list = [dict(r) for _, split in ds_dict.items() for r in split]
+            # Try normal HF dataset loading; if features are malformed (e.g., 'List' instead of 'Sequence'),
+            # fall back to downloading Arrow shards directly and reconstructing rows.
+            try:
+                ds_dict = load_dataset(str(data_or_local_dir_or_hf_repo_or_nested), trust_remote_code=True)  # type: ignore
+                raw_list = [dict(r) for _, split in ds_dict.items() for r in split]
+            except Exception as e:
+                if "Feature type 'List' not found" in str(e):
+                    from huggingface_hub import snapshot_download
+                    import glob
+                    import itertools
+
+                    repo_id = str(data_or_local_dir_or_hf_repo_or_nested)
+                    local_dir = snapshot_download(repo_id, repo_type="dataset")
+                    arrow_files = glob.glob(os.path.join(local_dir, "**", "*.arrow"), recursive=True)
+                    if not arrow_files:
+                        raise
+                    splits = [Dataset.from_file(f) for f in arrow_files]
+                    raw_list = [dict(r) for r in itertools.chain.from_iterable(splits)]
+                else:
+                    raise
 
         if not raw_list:
             raise ValueError("Loaded dataset is empty.")

@@ -5,7 +5,7 @@ export WANDB_MODE=disabled
 CUDA_VISIBLE_DEVICES=0 WANDB__SERVICE_WAIT=300 torchrun --master_port=56500 --nnodes=1 --nproc_per_node=1 -m scripts.train.offline_dpo_unsloth \
     --dataset_repo collabllm/collabllm-multiturn-medium \
     --model_name meta-llama/Llama-3.2-3B-Instruct \
-    --output_dir outputs/offline_dpo_from_base/collabllm-multiturn-medium \ 
+    --output_dir outputs/offline_dpo_from_base/collabllm-multiturn-medium \
     --per_device_train_batch_size 1 \
     --per_device_eval_batch_size 1 \
     --gradient_accumulation_steps 8 \
@@ -16,4 +16,5 @@ CUDA_VISIBLE_DEVICES=0 WANDB__SERVICE_WAIT=300 torchrun --master_port=56500 --nn
     --logging_steps 1 \
     --wandb_entity stephanemenard211 \
     --wandb_project collabllm \
-    --use_lora
+    --use_lora \
+    --use_4bit

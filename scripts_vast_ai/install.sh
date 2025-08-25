@@ -12,6 +12,46 @@ fi
 ln -snf /usr/share/zoneinfo/America/Montreal /etc/localtime
 echo "America/Montreal" > /etc/timezone
 
+# --- Python version check (Unsloth compatibility) ---
+echo "🐍 Checking Python version compatibility..."
+PYTHON_VERSION=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+echo "Detected Python version: $PYTHON_VERSION"
+
+case "$PYTHON_VERSION" in
+  "3.10"|"3.11"|"3.12")
+    echo "✅ Python $PYTHON_VERSION is compatible with Unsloth"
+    ;;
+  *)
+    echo "❌ ERROR: Python $PYTHON_VERSION is not supported by Unsloth"
+    echo "Unsloth requires Python 3.10, 3.11, or 3.12"
+    echo "Please use a compatible Python version or update your base image"
+    exit 1
+    ;;
+esac
+
+# --- GPU compatibility check ---
+echo "🎮 Checking GPU compatibility..."
+if command -v nvidia-smi >/dev/null 2>&1; then
+  GPU_INFO=$(nvidia-smi --query-gpu=name,compute_cap --format=csv,noheader,nounits 2>/dev/null | head -1)
+  if [ -n "$GPU_INFO" ]; then
+    GPU_NAME=$(echo "$GPU_INFO" | cut -d',' -f1 | xargs)
+    COMPUTE_CAP=$(echo "$GPU_INFO" | cut -d',' -f2 | xargs)
+    echo "Detected GPU: $GPU_NAME (Compute Capability: $COMPUTE_CAP)"
+    
+    # Check if compute capability is >= 7.0 (minimum for Unsloth)
+    if [ "$(echo "$COMPUTE_CAP >= 7.0" | bc -l 2>/dev/null || echo "0")" = "1" ]; then
+      echo "✅ GPU is compatible with Unsloth (requires compute capability >= 7.0)"
+    else
+      echo "⚠️  WARNING: GPU compute capability $COMPUTE_CAP may not be optimal for Unsloth"
+      echo "Unsloth works best with compute capability >= 7.0 (V100, T4, RTX 20/30/40/50 series)"
+    fi
+  else
+    echo "⚠️  Could not detect GPU compute capability"
+  fi
+else
+  echo "⚠️  nvidia-smi not found - GPU compatibility cannot be verified"
+fi
+
 # --- Config (edit these later) ---
 OPENAI_KEY="fake_key"
 VENV_DIR="/data/venvs/"
@@ -20,7 +60,7 @@ REPO_DIR="/data/collabllm"
 # --- Basics & deps ---
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
-apt-get install -y --no-install-recommends curl ca-certificates git python3 python3-venv python3-pip emacs-nox
+apt-get install -y --no-install-recommends curl ca-certificates git python3 python3-venv python3-pip emacs-nox bc
 
 # --- Install uv (Python package manager) ---
 if ! command -v uv >/dev/null 2>&1; then
@@ -43,8 +83,27 @@ fi
 # Bootstrap pip (uv venvs may not include pip by default)
 python -m ensurepip --upgrade || true
 python -m pip install --upgrade pip
-# Install required packages
-python -m pip install --no-cache-dir collabllm nvidia-ml-py3
+
+# Install stable PyTorch stack for compatibility with Unsloth + xFormers
+echo "🔥 Installing stable PyTorch 2.4.0 with CUDA 12.1..."
+uv pip install --no-cache-dir torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu121
+
+# Install Unsloth first (it will handle xFormers compatibility automatically)
+echo "🦙 Installing Unsloth for CUDA 12.1 and PyTorch 2.4.0..."
+uv pip install --no-cache-dir --upgrade pip
+uv pip install --no-cache-dir "unsloth[cu121-torch240] @ git+https://github.com/unslothai/unsloth.git"
+
+# Install compatible transformers
+echo "🤖 Installing compatible transformers..."
+uv pip install --no-cache-dir transformers
+
+# Install other ML packages with compatible versions
+echo "🔧 Installing other ML packages..."
+uv pip install --no-cache-dir accelerate peft trl bitsandbytes
+
+# Install collabllm and other required packages
+echo "📦 Installing collabllm and utilities..."
+uv pip install --no-cache-dir collabllm nvidia-ml-py3
 
 # --- Clone my collabllm forked repo (for code access/examples) ---
 # mkdir -p "$(dirname "$REPO_DIR")"
@@ -117,19 +176,24 @@ try:
 except Exception as e:
     print("NVML check failed:", repr(e))
 
-# Optional: torch CUDA
-section("PyTorch CUDA (optional)")
+# PyTorch CUDA + xFormers + Unsloth compatibility check
+section("PyTorch CUDA + xFormers + Unsloth")
 try:
     import torch
+    import xformers
+    import unsloth
     print("torch.version:", torch.__version__)
+    print("xformers.version:", xformers.__version__)
+    print("unsloth.version:", unsloth.__version__)
     print("torch.version.cuda:", getattr(torch.version, "cuda", None))
     print("torch.cuda.is_available:", torch.cuda.is_available())
     if torch.cuda.is_available():
         print("torch.cuda.device_count:", torch.cuda.device_count())
         for i in range(torch.cuda.device_count()):
             print(f"CUDA device {i}:", torch.cuda.get_device_name(i))
+    print("✅ All ML packages compatible and working!")
 except Exception as e:
-    print("PyTorch not available or failed to query:", repr(e))
+    print("❌ ML package compatibility issue:", repr(e))
 PYCODE
 
 # --- Shell prompt color (legible on light backgrounds) ---

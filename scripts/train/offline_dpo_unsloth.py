@@ -44,6 +44,12 @@ import argparse, os, json
 from typing import Tuple, Optional
 
 import torch
+
+try:
+    from unsloth import FastLanguageModel
+except Exception:  # pragma: no cover - optional dependency
+    FastLanguageModel = None
+
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
@@ -54,10 +60,6 @@ from peft import PeftConfig, PeftModel, LoraConfig, get_peft_model
 from collabllm.datasets.multiturn import MultiturnDataset
 from trl import DPOConfig, DPOTrainer
 import wandb
-try:
-    from unsloth import FastLanguageModel
-except Exception:  # pragma: no cover - optional dependency
-    FastLanguageModel = None
 
 
 # --------------------------------------------------------------------------- #

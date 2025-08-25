@@ -54,6 +54,7 @@ import os
 import random
 import numpy as np
 from typing import Any, Dict, List, Optional, Sequence, Union
+import itertools
 from collabllm.prompts import SYSTEM_PROMPT
 from datasets import Dataset, DatasetDict, load_dataset, load_from_disk
 
@@ -132,7 +133,6 @@ class MultiturnDataset:
             # by reading Arrow shards directly when available.
             from huggingface_hub import snapshot_download
             import glob
-            import itertools
 
             repo_id = str(data_or_local_dir_or_hf_repo_or_nested)
             try:
@@ -144,13 +144,40 @@ class MultiturnDataset:
             if local_dir and os.path.isdir(local_dir):
                 arrow_files = glob.glob(os.path.join(local_dir, "**", "*.arrow"), recursive=True)
 
+            if os.environ.get("LOCAL_RANK", "0") == "0":
+                logger.warning(f"[multiturn] snapshot dir: {local_dir} | arrow files: {len(arrow_files)}")
             if arrow_files:
                 splits = [Dataset.from_file(f) for f in arrow_files]
                 raw_list = [dict(r) for r in itertools.chain.from_iterable(splits)]
             else:
-                # Fallback to standard loader if no Arrow files exist in the repo
-                ds_dict = load_dataset(repo_id, trust_remote_code=True)  # type: ignore
-                raw_list = [dict(r) for _, split in ds_dict.items() for r in split]
+                # Fallback: try to load explicit data files (parquet/json) from Hub
+                from huggingface_hub import list_repo_files, hf_hub_url
+                files = list_repo_files(repo_id, repo_type="dataset")
+                parquet_files = [f for f in files if f.lower().endswith(".parquet")]
+                json_files = [f for f in files if f.lower().endswith((".jsonl", ".json"))]
+
+                if os.environ.get("LOCAL_RANK", "0") == "0":
+                    logger.warning(f"[multiturn] repo files: {len(files)} | parquet: {len(parquet_files)} | json: {len(json_files)}")
+
+                if parquet_files:
+                    urls = [hf_hub_url(repo_id, f, repo_type="dataset") for f in parquet_files]
+                    ds_dict = load_dataset("parquet", data_files=urls)  # type: ignore
+                    raw_list = [dict(r) for _, split in ds_dict.items() for r in split]
+                elif json_files:
+                    urls = [hf_hub_url(repo_id, f, repo_type="dataset") for f in json_files]
+                    ds_dict = load_dataset("json", data_files=urls)  # type: ignore
+                    raw_list = [dict(r) for _, split in ds_dict.items() for r in split]
+                else:
+                    # Last resort: try regular loader; if it fails due to Feature type, use streaming
+                    try:
+                        ds_dict = load_dataset(repo_id, trust_remote_code=True)  # type: ignore
+                        raw_list = [dict(r) for _, split in ds_dict.items() for r in split]
+                    except Exception as e:
+                        if "Feature type 'List' not found" in str(e):
+                            ds_stream = load_dataset(repo_id, streaming=True)  # type: ignore
+                            raw_list = [dict(r) for _, split in ds_stream.items() for r in split]
+                        else:
+                            raise
 
         if not raw_list:
             raise ValueError("Loaded dataset is empty.")

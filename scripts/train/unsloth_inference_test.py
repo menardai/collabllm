@@ -72,6 +72,18 @@ def load_model(args):
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token_id = tokenizer.eos_token_id
 
+    if torch.cuda.is_available():
+        device = torch.cuda.current_device()
+        props = torch.cuda.get_device_properties(device)
+        total_mem_mb = props.total_memory / (1024 ** 2)
+        allocated_mem_mb = torch.cuda.memory_allocated(device) / (1024 ** 2)
+        reserved_mem_mb = torch.cuda.memory_reserved(device) / (1024 ** 2)
+        free_mem_mb = reserved_mem_mb - allocated_mem_mb
+        print(f"[CUDA] Device: {props.name}")
+        print(f"[CUDA] Total memory: {total_mem_mb:.2f} MB")
+        print(f"[CUDA] Allocated memory: {allocated_mem_mb:.2f} MB")
+        print(f"[CUDA] Reserved memory: {reserved_mem_mb:.2f} MB")
+        print(f"[CUDA] Free memory (reserved - allocated): {free_mem_mb:.2f} MB")
     return model, tokenizer
 
 def chat_once(model, tokenizer, system_prompt: str, user_prompt: str,

@@ -148,18 +148,6 @@ def load_model_and_tokenizer(
             device_map="auto",
             trust_remote_code=False,
         )
-        if lora_cfg:
-            model = FastLanguageModel.get_peft_model(
-                model,
-                r=lora_cfg.r,
-                target_modules=lora_cfg.target_modules,
-                lora_alpha=lora_cfg.lora_alpha,
-                lora_dropout=lora_cfg.lora_dropout,
-                bias="none",
-                use_gradient_checkpointing="unsloth",
-                random_state=3407,
-                loftq_config=None,
-            )
         # For training mode
         # Unsloth enables the right hooks internally when creating the PEFT model
     else:
@@ -289,6 +277,8 @@ def main() -> None:
         deepspeed=ds_backend, 
         fp16=not torch.cuda.is_bf16_supported(), 
         bf16=torch.cuda.is_bf16_supported(),
+        precompute_ref_log_probs=True,
+        group_by_length=True,
     )
 
     # W&B
@@ -313,8 +303,8 @@ def main() -> None:
     ds["train"] = ds["train"].map(process, load_from_cache_file=False)
     ds["eval"] = ds["eval"].map(process, load_from_cache_file=False)
 
-    # If Unsloth 4-bit was used, PEFT is already applied; avoid double-wrapping in trainer.
-    trainer_peft_cfg = None if args.use_4bit else lora_cfg
+    # Always let the trainer manage PEFT adapters to enable adapter sharing with a single base model.
+    trainer_peft_cfg = lora_cfg
 
     trainer = DPOTrainer(
         model=model,

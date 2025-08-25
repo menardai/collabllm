@@ -155,6 +155,8 @@ def load_model_and_tokenizer(
             load_in_4bit=True,
             device_map="auto",
             trust_remote_code=False,
+            # Force SDPA attention to avoid xFormers BMGHK kernel issues
+            attn_implementation="sdpa",
         )
         # For training mode
         # Unsloth enables the right hooks internally when creating the PEFT model
@@ -167,6 +169,7 @@ def load_model_and_tokenizer(
                 device_map={"": device},
                 quantization_config=bnb_cfg,
                 trust_remote_code=True,
+                attn_implementation="sdpa",
             )
             model = PeftModel.from_pretrained(base, model_name, is_trainable=not is_eval)
             tok = AutoTokenizer.from_pretrained(pc.base_model_name_or_path, trust_remote_code=True)
@@ -176,6 +179,7 @@ def load_model_and_tokenizer(
                 device_map={"": device},
                 quantization_config=bnb_cfg,
                 trust_remote_code=True,
+                attn_implementation="sdpa",
             )
             tok = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
             if lora_cfg:
@@ -267,7 +271,7 @@ def main() -> None:
         eval_steps=args.eval_steps, 
         save_strategy='epoch',
         eval_strategy="steps",
-        gradient_checkpointing=True,  
+        gradient_checkpointing=False,  # Disable to avoid attention backend conflicts  
         lr_scheduler_type="cosine",
         metric_for_best_model="eval_loss",
         warmup_ratio=args.warmup_ratio,

@@ -99,6 +99,7 @@ def parse_args() -> argparse.Namespace:
 
     # Precision / hardware
     p.add_argument("--device", type=str, default="cuda")
+    p.add_argument("--local_rank", type=int, default=-1)
     p.add_argument("--use_lora", action="store_true", default=False)
     p.add_argument("--use_4bit", action="store_true", default=False)
 
@@ -111,7 +112,10 @@ def parse_args() -> argparse.Namespace:
     # Optional JSON/YAML override
     p.add_argument("--config_file", type=str)
 
-    args = p.parse_args()
+    # Be tolerant to unknown args (e.g., launchers may inject extras)
+    args, unknown = p.parse_known_args()
+    if unknown:
+        print(f"[warn] Ignoring unknown CLI args: {unknown}")
     if args.config_file:
         with open(args.config_file) as f:
             override = json.load(f) if args.config_file.endswith(".json") else \

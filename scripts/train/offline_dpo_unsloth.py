@@ -79,6 +79,7 @@ def parse_args() -> argparse.Namespace:
     # Data / paths
     p.add_argument("--dataset_repo", type=str, required=True)
     p.add_argument("--eval_ratio",   type=float, default=0.1)
+    p.add_argument("--max_train_samples", type=int, default=None, help="Limit number of training samples for debugging")
     p.add_argument("--output_dir",   type=str, required=True)
     p.add_argument("--resume_ckpt_dir", type=str, default=None)
 
@@ -330,6 +331,11 @@ def main() -> None:
 
     ds["train"] = ds["train"].map(process, load_from_cache_file=False)
     ds["eval"] = ds["eval"].map(process, load_from_cache_file=False)
+    
+    # Limit training samples for faster debugging
+    if args.max_train_samples is not None:
+        ds["train"] = ds["train"].select(range(min(args.max_train_samples, len(ds["train"]))))
+        print(f"[debug] Limited training set to {len(ds['train'])} samples")
 
     # Always let the trainer manage PEFT adapters to enable adapter sharing with a single base model.
     trainer_peft_cfg = lora_cfg

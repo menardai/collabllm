@@ -86,8 +86,8 @@ python -m pip install --upgrade pip
 
 # Install stable PyTorch stack for compatibility with Unsloth + xFormers
 echo "🔥 Installing stable PyTorch 2.4.0 with CUDA 12.1..."
-uv pip install --no-cache-dir torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu121
-# uv pip install --no-cache-dir torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1 --index-url https://download.pytorch.org/whl/cu121
+# uv pip install --no-cache-dir torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu121
+uv pip install --no-cache-dir torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1 --index-url https://download.pytorch.org/whl/cu121
 
 # Install Unsloth first (it will handle xFormers compatibility automatically)
 echo "🦙 Installing Unsloth for CUDA 12.1 and PyTorch 2.4.0..."

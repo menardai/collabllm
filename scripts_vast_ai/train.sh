@@ -5,6 +5,7 @@ export WANDB_MODE=disabled
 export HF_HOME="/data/.cache/huggingface"
 export TRANSFORMERS_CACHE="$HF_HOME/transformers"
 export HF_HUB_ENABLE_HF_TRANSFER=1
+export ACCELERATE_MIXED_PRECISION=no
 mkdir -p "$TRANSFORMERS_CACHE"
 CUDA_VISIBLE_DEVICES=0 WANDB__SERVICE_WAIT=300 torchrun --master_port=56500 --nnodes=1 --nproc_per_node=1 -m scripts.train.offline_dpo \
     --dataset_repo collabllm/collabllm-multiturn-medium \

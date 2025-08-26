@@ -251,14 +251,11 @@ def main() -> None:
         "steps_per_print": 200,
     }
 
-    # Use DeepSpeed-managed autocast only; disable bf16/fp16 modes to avoid conflicts
-    ds_cfg["bf16"] = {"enabled": False}
+    # Use DeepSpeed bf16 auto (not torch_autocast) to avoid FP32 param requirement
+    ds_cfg["bf16"] = {"enabled": "auto"}
     ds_cfg["fp16"] = {"enabled": False}
-    # Enable DeepSpeed-managed autocast to satisfy nested autocast checks
-    ds_cfg["torch_autocast"] = {
-        "enabled": True,
-        "dtype": "bfloat16" if torch.cuda.is_bf16_supported() else "float16",
-    }
+    # Ensure DS torch_autocast is disabled to prevent nested autocast checks
+    ds_cfg["torch_autocast"] = {"enabled": False}
 
     # Trainer config
     train_args = DPOConfig(

@@ -150,27 +150,15 @@ def load_model_and_tokenizer(
     if bnb_cfg is not None:
         if FastLanguageModel is None:
             raise ImportError("Unsloth is required for --use_4bit. Please install 'unsloth'.")
-        dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
+        # dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
         model, tok = FastLanguageModel.from_pretrained(
             model_name=model_name,
             max_seq_length=max_seq_length,
-            dtype=dtype,
+            dtype=None,
             load_in_4bit=True,
             device_map="auto",
             trust_remote_code=False,
-            # Force SDPA attention to avoid xFormers BMGHK kernel issues
-            attn_implementation="sdpa",
         )
-        # Ensure Unsloth uses non-xFormers attention backends during training
-        try:
-            FastLanguageModel.for_training(
-                model,
-                use_gradient_checkpointing="unsloth",
-                use_flash_attention_2=False,
-                use_xformers_attn=False,
-            )
-        except Exception:
-            pass
         # Unsloth enables the right hooks internally when creating the PEFT model
     else:
         # Fallback to regular HF loading (full precision or 8-bit/none)
@@ -344,6 +332,7 @@ def main() -> None:
 
     trainer = DPOTrainer(
         model=model,
+        ref_model = None,
         train_dataset=ds["train"],
         eval_dataset=ds["eval"],
         processing_class=tok,

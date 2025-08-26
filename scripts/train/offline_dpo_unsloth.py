@@ -163,7 +163,7 @@ def load_model_and_tokenizer(
         try:
             FastLanguageModel.for_training(
                 model,
-                use_gradient_checkpointing="unsloth",
+                use_gradient_checkpointing=False,
                 use_flash_attention_2=False,
                 use_xformers_attn=False,
             )
@@ -249,11 +249,6 @@ def main() -> None:
         is_eval=False,
         max_seq_length=args.max_seq_length,
     )
-    # Ensure model-level gradient checkpointing is enabled to match Trainer settings
-    try:
-        model.gradient_checkpointing_enable()
-    except Exception:
-        pass
 
     # DeepSpeed zero
     ds_cfg = {
@@ -286,7 +281,7 @@ def main() -> None:
         eval_steps=args.eval_steps, 
         save_strategy='epoch',
         eval_strategy="steps",
-        gradient_checkpointing=True,
+        gradient_checkpointing=False,
         lr_scheduler_type="cosine",
         metric_for_best_model="eval_loss",
         warmup_ratio=args.warmup_ratio,
@@ -294,7 +289,6 @@ def main() -> None:
         logging_steps=args.logging_steps,
         num_train_epochs=args.num_train_epochs,
         save_total_limit=args.save_total_limit,
-        gradient_checkpointing_kwargs={'use_reentrant': False},
         max_length=args.max_new_tokens, 
         max_prompt_length=args.max_prompt_length, 
         per_device_train_batch_size=args.per_device_train_batch_size,

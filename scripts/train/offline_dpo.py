@@ -251,6 +251,14 @@ def main() -> None:
         "steps_per_print": 200,
     }
 
+    # Ensure DeepSpeed mixed precision is explicitly enabled to match torch.autocast
+    if torch.cuda.is_bf16_supported():
+        ds_cfg["bf16"] = {"enabled": True}
+        ds_cfg["zero_optimization"]["communication_data_type"] = "bf16"
+    else:
+        ds_cfg["fp16"] = {"enabled": True}
+        ds_cfg["zero_optimization"]["communication_data_type"] = "fp16"
+
     # Trainer config
     train_args = DPOConfig(
         beta=0.1,

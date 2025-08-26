@@ -86,33 +86,20 @@ python -m pip install --upgrade pip
 
 # Install stable PyTorch stack for compatibility with Unsloth + xFormers
 echo "🔥 Installing stable PyTorch 2.4.0 with CUDA 12.1..."
-uv pip install --no-cache-dir torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu121
+# uv pip install --no-cache-dir torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu121
+uv pip install --no-cache-dir torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1 --index-url https://download.pytorch.org/whl/cu121
 
 # Install Unsloth first (it will handle xFormers compatibility automatically)
 echo "🦙 Installing Unsloth for CUDA 12.1 and PyTorch 2.4.0..."
 uv pip install --no-cache-dir --upgrade pip
 uv pip install --no-cache-dir "unsloth[cu121-torch240] @ git+https://github.com/unslothai/unsloth.git"
 
-# Install compatible transformers
-echo "🤖 Installing compatible transformers..."
-uv pip install --no-cache-dir transformers
-
-# Install other ML packages with compatible versions
-echo "🔧 Installing other ML packages..."
-uv pip install --no-cache-dir accelerate peft trl bitsandbytes
-
 # Install collabllm and other required packages
-echo "📦 Installing collabllm and utilities..."
-uv pip install --no-cache-dir collabllm nvidia-ml-py3
+echo "📦 Installing utilities..."
+uv pip install --no-cache-dir nvidia-ml-py3
 
-# --- Clone my collabllm forked repo (for code access/examples) ---
-# mkdir -p "$(dirname "$REPO_DIR")"
-# if [ ! -d "$REPO_DIR/.git" ]; then
-#   git clone https://github.com/menardai/collabllm.git "$REPO_DIR"
-# else
-#   git -C "$REPO_DIR" fetch --all --prune
-#   git -C "$REPO_DIR" pull --ff-only
-# fi
+# Install my local collabllm repo
+uv pip install --no-cache-dir -e collabllm
 
 # --- Set OpenAI key as env var (dummy; replace later) ---
 export OPENAI_API_KEY="${OPENAI_KEY}"
@@ -195,29 +182,6 @@ try:
 except Exception as e:
     print("❌ ML package compatibility issue:", repr(e))
 PYCODE
-
-# --- Shell prompt color (legible on light backgrounds) ---
-PROMPT_SNIPPET='
-# Legible prompt on light backgrounds
-if [ -n "$PS1" ]; then
-  # ANSI colors
-  RED="\\[\\e[31m\\]"
-  GREEN="\\[\\e[32m\\]"
-  BLUE="\\[\\e[34m\\]"
-  CYAN="\\[\\e[36m\\]"
-  BOLD="\\[\\e[1m\\]"
-  RESET="\\[\\e[0m\\]"
-  # user@host in green, cwd in bold cyan, prompt char in blue
-  export PS1="${GREEN}\\u@\\h${RESET}:${BOLD}${CYAN} \\w ${RESET}${BLUE} \\$ ${RESET}"
-fi
-'
-# Persist once to root's bashrc
-if ! grep -q 'Legible prompt on light backgrounds' "$HOME/.bashrc" 2>/dev/null; then
-  printf "%s\n" "$PROMPT_SNIPPET" >> "$HOME/.bashrc"
-fi
-# Apply to current shell (safe to source)
-# shellcheck source=/dev/null
-. "$HOME/.bashrc"
 
 # --- Hugging Face cache setup ---
 export HF_HOME="/data/.cache/huggingface"

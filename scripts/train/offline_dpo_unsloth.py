@@ -54,7 +54,9 @@ os.environ.setdefault("PYTORCH_SDP_USE_MEM_EFFICIENT_ATTENTION", "0")
 os.environ.setdefault("PYTORCH_SDP_USE_MATH", "1")
 
 try:
-    from unsloth import FastLanguageModel
+    from unsloth import FastLanguageModel, PatchDPOTrainer
+    from unsloth import is_bfloat16_supported
+    PatchDPOTrainer()
 except Exception:  # pragma: no cover - optional dependency
     FastLanguageModel = None
 
@@ -302,8 +304,8 @@ def main() -> None:
         run_name=args.output_dir,
         output_dir=args.output_dir,
         deepspeed=ds_backend, 
-        fp16=not torch.cuda.is_bf16_supported(), 
-        bf16=torch.cuda.is_bf16_supported(),
+        fp16 = not is_bfloat16_supported(),
+        bf16 = is_bfloat16_supported(),
         precompute_ref_log_probs=False,
         # Disable length-based grouping since our dataset items are not tokenized
         # and thus do not contain 'input_ids' for automatic length inference.

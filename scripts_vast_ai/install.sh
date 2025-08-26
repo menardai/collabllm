@@ -101,6 +101,9 @@ uv pip install --no-cache-dir nvidia-ml-py3
 # Install my local collabllm repo
 uv pip install --no-cache-dir -e collabllm
 
+# uninstall torchao to avoid conflict with unsloth
+uv pip uninstall torchao
+
 # --- Set OpenAI key as env var (dummy; replace later) ---
 export OPENAI_API_KEY="${OPENAI_KEY}"
 

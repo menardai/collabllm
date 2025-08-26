@@ -254,8 +254,11 @@ def main() -> None:
     # Let HF/Transformers finalize precision; avoid mismatches by using 'auto'
     ds_cfg["bf16"] = {"enabled": "auto"}
     ds_cfg["fp16"] = {"enabled": "auto"}
-    # Explicitly disable torch autocast to prevent nested autocast assertion
-    ds_cfg["autocast"] = {"enabled": False}
+    # Enable DeepSpeed-managed autocast to satisfy nested autocast checks
+    ds_cfg["torch_autocast"] = {
+        "enabled": True,
+        "dtype": "bfloat16" if torch.cuda.is_bf16_supported() else "float16",
+    }
 
     # Trainer config
     train_args = DPOConfig(

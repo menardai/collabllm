@@ -208,6 +208,9 @@ def main() -> None:
         device=args.device,
         is_eval=False,
     )
+    # Required when using gradient checkpointing to avoid cache/shape mismatches
+    if hasattr(model, "config"):
+        model.config.use_cache = False
 
     # DeepSpeed ZeRO and offload configuration (defaults minimize VRAM on single 24GB GPU)
     def _mk_offload(device: str) -> dict:

@@ -103,7 +103,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--ds_offload_nvme_path", type=str, default="/tmp/ds_nvme")
     p.add_argument("--ds_offload_nvme_buffer_size", type=int, default=104857600)  # 100MB
     p.add_argument("--ds_pin_memory", action="store_true", default=True)
-    p.add_argument("--precompute_ref_log_probs", action="store_true", default=True)
+    p.add_argument("--precompute_ref_log_probs", dest="precompute_ref_log_probs", action="store_true", default=True)
+    p.add_argument("--no_precompute_ref_log_probs", dest="precompute_ref_log_probs", action="store_false")
 
     # Tracking
     p.add_argument("--wandb_project", type=str)
@@ -121,6 +122,10 @@ def parse_args() -> argparse.Namespace:
                        __import__("yaml").safe_load(f)
         for k, v in override.items():
             setattr(args, k, v)
+    # Ensure TRL constraint: precompute_ref_log_probs is incompatible with ZeRO-3
+    if int(args.ds_zero_stage) >= 3 and getattr(args, "precompute_ref_log_probs", False):
+        print("precompute_ref_log_probs is incompatible with ZeRO-3; forcing it to False.")
+        args.precompute_ref_log_probs = False
     return args
 
 # --------------------------------------------------------------------------- #

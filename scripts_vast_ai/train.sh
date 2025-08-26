@@ -26,4 +26,4 @@ CUDA_VISIBLE_DEVICES=0 WANDB__SERVICE_WAIT=300 torchrun --master_port=56500 --nn
     --ds_offload_optimizer_device cpu \
     --ds_offload_param_device cpu \
     --ds_pin_memory \
-    --precompute_ref_log_probs
+    --no_precompute_ref_log_probs

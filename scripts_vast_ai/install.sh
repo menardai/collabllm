@@ -97,6 +97,7 @@ uv pip install --no-cache-dir --upgrade pip
 # uv pip install "unsloth[cu121-ampere-torch240] @ git+https://github.com/unslothai/unsloth.git"
 export UNSLOTH_FORCE_ATTN=sdpa
 uv pip install --no-cache-dir "unsloth @ git+https://github.com/unslothai/unsloth.git"
+uv pip install --no-cache-dir unsloth_zoo
 
 # Install collabllm and other required packages
 echo "📦 Installing utilities..."

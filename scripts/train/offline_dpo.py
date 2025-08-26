@@ -96,6 +96,15 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--use_lora", action="store_true", default=False)
     p.add_argument("--use_4bit", action="store_true", default=False)
 
+    # DeepSpeed / memory knobs
+    p.add_argument("--ds_zero_stage", type=int, default=3)
+    p.add_argument("--ds_offload_optimizer_device", type=str, choices=["none", "cpu", "nvme"], default="cpu")
+    p.add_argument("--ds_offload_param_device", type=str, choices=["none", "cpu", "nvme"], default="cpu")
+    p.add_argument("--ds_offload_nvme_path", type=str, default="/tmp/ds_nvme")
+    p.add_argument("--ds_offload_nvme_buffer_size", type=int, default=104857600)  # 100MB
+    p.add_argument("--ds_pin_memory", action="store_true", default=True)
+    p.add_argument("--precompute_ref_log_probs", action="store_true", default=True)
+
     # Tracking
     p.add_argument("--wandb_project", type=str)
     p.add_argument("--wandb_entity",  type=str)
@@ -195,15 +204,40 @@ def main() -> None:
         is_eval=False,
     )
 
-    # DeepSpeed zero
+    # DeepSpeed ZeRO and offload configuration (defaults minimize VRAM on single 24GB GPU)
+    def _mk_offload(device: str) -> dict:
+        if device == "none":
+            return {"device": "none"}
+        cfg = {"device": device, "pin_memory": bool(args.ds_pin_memory)}
+        if device == "nvme":
+            cfg.update({
+                "nvme_path": args.ds_offload_nvme_path,
+                "buffer_count": 4,
+                "buffer_size": args.ds_offload_nvme_buffer_size,
+                "fast_init": True,
+            })
+        return cfg
+
     ds_cfg = {
         "zero_optimization": {
-            "stage": 2,
+            "stage": int(args.ds_zero_stage),
             "overlap_comm": True,
-            "reduce_bucket_size": "auto",
+            "reduce_bucket_size": 5e7,
             "contiguous_gradients": True,
-            "offload_optimizer": {"device": "none"},
-            "offload_param": {"device": "none"},
+            # Stage 3 tunables that further reduce peak VRAM
+            "stage3_prefetch_bucket_size": 5e7,
+            "stage3_param_persistence_threshold": 1e5,
+            "stage3_max_live_parameters": 1e9,
+            "stage3_max_reuse_distance": 1e9,
+            "round_robin_gradients": True,
+            "offload_optimizer": _mk_offload(args.ds_offload_optimizer_device),
+            "offload_param": _mk_offload(args.ds_offload_param_device),
+        },
+        "aio": {
+            "block_size": 1048576,
+            "queue_depth": 8,
+            "single_submit": False,
+            "overlap_events": True,
         },
         "gradient_clipping": "auto",
         "train_batch_size": "auto",
@@ -242,7 +276,7 @@ def main() -> None:
         fp16=not torch.cuda.is_bf16_supported(), 
         bf16=torch.cuda.is_bf16_supported(),
 
-        precompute_ref_log_probs=False,
+        precompute_ref_log_probs=args.precompute_ref_log_probs,
         # Disable length-based grouping since our dataset items are not tokenized
         # and thus do not contain 'input_ids' for automatic length inference.
         group_by_length=False,

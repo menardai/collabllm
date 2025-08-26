@@ -20,5 +20,10 @@ CUDA_VISIBLE_DEVICES=0 WANDB__SERVICE_WAIT=300 torchrun --master_port=56500 --nn
     --logging_steps 1 \
     --wandb_entity stephanemenard211 \
     --wandb_project collabllm \
-    --use_lora
-    --use_4bit
+    --use_lora \
+    --use_4bit \
+    --ds_zero_stage 3 \
+    --ds_offload_optimizer_device cpu \
+    --ds_offload_param_device cpu \
+    --ds_pin_memory \
+    --precompute_ref_log_probs

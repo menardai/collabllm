@@ -254,6 +254,8 @@ def main() -> None:
     # Let HF/Transformers finalize precision; avoid mismatches by using 'auto'
     ds_cfg["bf16"] = {"enabled": "auto"}
     ds_cfg["fp16"] = {"enabled": "auto"}
+    # Explicitly disable torch autocast to prevent nested autocast assertion
+    ds_cfg["autocast"] = {"enabled": False}
 
     # Trainer config
     train_args = DPOConfig(

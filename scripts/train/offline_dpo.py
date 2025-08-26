@@ -251,9 +251,9 @@ def main() -> None:
         "steps_per_print": 200,
     }
 
-    # Let HF/Transformers finalize precision; avoid mismatches by using 'auto'
-    ds_cfg["bf16"] = {"enabled": "auto"}
-    ds_cfg["fp16"] = {"enabled": "auto"}
+    # Use DeepSpeed-managed autocast only; disable bf16/fp16 modes to avoid conflicts
+    ds_cfg["bf16"] = {"enabled": False}
+    ds_cfg["fp16"] = {"enabled": False}
     # Enable DeepSpeed-managed autocast to satisfy nested autocast checks
     ds_cfg["torch_autocast"] = {
         "enabled": True,
@@ -287,9 +287,9 @@ def main() -> None:
         run_name=args.output_dir,
         output_dir=args.output_dir,
         deepspeed=ds_cfg, 
-        # Enable HF precision flags to match 'auto' DeepSpeed settings
-        fp16=not torch.cuda.is_bf16_supported(),
-        bf16=torch.cuda.is_bf16_supported(),
+        # Disable HF autocast; let DeepSpeed manage autocast exclusively
+        fp16=False,
+        bf16=False,
 
         precompute_ref_log_probs=args.precompute_ref_log_probs,
         # Disable length-based grouping since our dataset items are not tokenized

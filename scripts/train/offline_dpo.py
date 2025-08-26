@@ -106,6 +106,9 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--precompute_ref_log_probs", dest="precompute_ref_log_probs", action="store_true", default=True)
     p.add_argument("--no_precompute_ref_log_probs", dest="precompute_ref_log_probs", action="store_false")
 
+    # Checkpointing
+    p.add_argument("--gradient_checkpointing", action="store_true", default=False)
+
     # Tracking
     p.add_argument("--wandb_project", type=str)
     p.add_argument("--wandb_entity",  type=str)
@@ -271,7 +274,7 @@ def main() -> None:
         eval_steps=args.eval_steps, 
         save_strategy='epoch',
         eval_strategy="steps",
-        gradient_checkpointing=True,  
+        gradient_checkpointing=args.gradient_checkpointing,
         lr_scheduler_type="cosine",
         metric_for_best_model="eval_loss",
         warmup_ratio=args.warmup_ratio,
@@ -279,7 +282,7 @@ def main() -> None:
         logging_steps=args.logging_steps,
         num_train_epochs=args.num_train_epochs,
         save_total_limit=args.save_total_limit,
-        gradient_checkpointing_kwargs={'use_reentrant': False},
+        gradient_checkpointing_kwargs={'use_reentrant': True} if args.gradient_checkpointing else None,
         max_length=args.max_new_tokens, 
         max_prompt_length=args.max_prompt_length, 
         per_device_train_batch_size=args.per_device_train_batch_size,

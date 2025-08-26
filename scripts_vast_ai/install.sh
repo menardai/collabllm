@@ -92,11 +92,14 @@ uv pip install --no-cache-dir torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1
 # Install Unsloth first (it will handle xFormers compatibility automatically)
 echo "🦙 Installing Unsloth for CUDA 12.1 and PyTorch 2.4.0..."
 uv pip install --no-cache-dir --upgrade pip
-uv pip install --no-cache-dir "unsloth[cu121-torch240] @ git+https://github.com/unslothai/unsloth.git"
+# uv pip install --no-cache-dir "unsloth[cu121-torch240] @ git+https://github.com/unslothai/unsloth.git"
+# Ampere devices (A100, H100, RTX 3090) special case
+uv pip install "unsloth[cu121-ampere-torch240] @ git+https://github.com/unslothai/unsloth.git"
 
 # Install collabllm and other required packages
 echo "📦 Installing utilities..."
 uv pip install --no-cache-dir nvidia-ml-py3
+uv pip install --no-cache-dir -U "huggingface_hub[cli]"
 
 # Install my local collabllm repo
 uv pip install --no-cache-dir -e ..

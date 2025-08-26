@@ -99,7 +99,7 @@ echo "📦 Installing utilities..."
 uv pip install --no-cache-dir nvidia-ml-py3
 
 # Install my local collabllm repo
-uv pip install --no-cache-dir -e collabllm
+uv pip install --no-cache-dir -e ..
 
 # uninstall torchao to avoid conflict with unsloth
 uv pip uninstall torchao

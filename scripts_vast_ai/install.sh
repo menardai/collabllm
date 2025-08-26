@@ -44,16 +44,9 @@ fi
 python -m ensurepip --upgrade || true
 python -m pip install --upgrade pip
 # Install required packages
-python -m pip install --no-cache-dir collabllm nvidia-ml-py3
-
-# --- Clone my collabllm forked repo (for code access/examples) ---
-# mkdir -p "$(dirname "$REPO_DIR")"
-# if [ ! -d "$REPO_DIR/.git" ]; then
-#   git clone https://github.com/menardai/collabllm.git "$REPO_DIR"
-# else
-#   git -C "$REPO_DIR" fetch --all --prune
-#   git -C "$REPO_DIR" pull --ff-only
-# fi
+python -m pip install --no-cache-dir nvidia-ml-py3
+# Install collabllm
+python -m pip install --no-cache-dir ..
 
 # --- Set OpenAI key as env var (dummy; replace later) ---
 export OPENAI_API_KEY="${OPENAI_KEY}"
@@ -131,42 +124,5 @@ try:
 except Exception as e:
     print("PyTorch not available or failed to query:", repr(e))
 PYCODE
-
-# --- Shell prompt color (legible on light backgrounds) ---
-PROMPT_SNIPPET='
-# Legible prompt on light backgrounds
-if [ -n "$PS1" ]; then
-  # ANSI colors
-  RED="\\[\\e[31m\\]"
-  GREEN="\\[\\e[32m\\]"
-  BLUE="\\[\\e[34m\\]"
-  CYAN="\\[\\e[36m\\]"
-  BOLD="\\[\\e[1m\\]"
-  RESET="\\[\\e[0m\\]"
-  # user@host in green, cwd in bold cyan, prompt char in blue
-  export PS1="${GREEN}\\u@\\h${RESET}:${BOLD}${CYAN} \\w ${RESET}${BLUE} \\$ ${RESET}"
-fi
-'
-# Persist once to root's bashrc
-if ! grep -q 'Legible prompt on light backgrounds' "$HOME/.bashrc" 2>/dev/null; then
-  printf "%s\n" "$PROMPT_SNIPPET" >> "$HOME/.bashrc"
-fi
-# Apply to current shell (safe to source)
-# shellcheck source=/dev/null
-. "$HOME/.bashrc"
-
-# --- Hugging Face cache setup ---
-export HF_HOME="/data/.cache/huggingface"
-export TRANSFORMERS_CACHE="$HF_HOME/transformers"
-export HF_HUB_ENABLE_HF_TRANSFER=1
-mkdir -p "$TRANSFORMERS_CACHE"
-# Persist for future shells
-if ! grep -q 'HF_HOME=' /etc/environment 2>/dev/null; then
-  {
-    echo "HF_HOME=$HF_HOME"
-    echo "TRANSFORMERS_CACHE=$TRANSFORMERS_CACHE"
-    echo "HF_HUB_ENABLE_HF_TRANSFER=1"
-  } >> /etc/environment
-fi
 
 echo "Setup complete."

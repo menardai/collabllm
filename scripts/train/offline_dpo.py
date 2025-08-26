@@ -251,13 +251,9 @@ def main() -> None:
         "steps_per_print": 200,
     }
 
-    # Ensure DeepSpeed mixed precision is explicitly enabled to match torch.autocast
-    if torch.cuda.is_bf16_supported():
-        ds_cfg["bf16"] = {"enabled": True}
-        ds_cfg["autocast"] = {"enabled": True, "dtype": "bf16"}
-    else:
-        ds_cfg["fp16"] = {"enabled": True}
-        ds_cfg["autocast"] = {"enabled": True, "dtype": "fp16"}
+    # Let HF/Transformers finalize precision; avoid mismatches by using 'auto'
+    ds_cfg["bf16"] = {"enabled": "auto"}
+    ds_cfg["fp16"] = {"enabled": "auto"}
 
     # Trainer config
     train_args = DPOConfig(
@@ -286,9 +282,9 @@ def main() -> None:
         run_name=args.output_dir,
         output_dir=args.output_dir,
         deepspeed=ds_cfg, 
-        # Disable outer autocast; let DeepSpeed control mixed precision
-        fp16=False,
-        bf16=False,
+        # Enable HF precision flags to match 'auto' DeepSpeed settings
+        fp16=not torch.cuda.is_bf16_supported(),
+        bf16=torch.cuda.is_bf16_supported(),
 
         precompute_ref_log_probs=args.precompute_ref_log_probs,
         # Disable length-based grouping since our dataset items are not tokenized

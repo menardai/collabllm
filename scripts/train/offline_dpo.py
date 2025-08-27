@@ -131,6 +131,7 @@ def load_model_and_tokenizer(
             quantization_config=bnb_cfg,
             trust_remote_code=True,
             low_cpu_mem_usage=True,
+            attn_implementation="flash_attention_2",
         )
         model = PeftModel.from_pretrained(base, model_name, is_trainable=not is_eval)
         tok = AutoTokenizer.from_pretrained(pc.base_model_name_or_path, trust_remote_code=True)
@@ -141,6 +142,7 @@ def load_model_and_tokenizer(
             quantization_config=bnb_cfg,
             trust_remote_code=True,
             low_cpu_mem_usage=True,
+            attn_implementation="flash_attention_2",
         )
         tok = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
         if lora_cfg:

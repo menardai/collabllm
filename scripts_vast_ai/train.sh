@@ -1,7 +1,7 @@
 #! /bin/bash
 cd /data/collabllm
 export OPENAI_API_KEY=fake_key
-export WANDB_MODE=enabled
+export WANDB_MODE=online
 export HF_HOME="/data/.cache/huggingface"
 export TRANSFORMERS_CACHE="$HF_HOME/transformers"
 export HF_HUB_ENABLE_HF_TRANSFER=1

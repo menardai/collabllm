@@ -44,14 +44,14 @@ fi
 python -m ensurepip --upgrade || true
 python -m pip install --upgrade pip
 # Install required packages
-uv pip install --no-cache-dir nvidia-ml-py3
+python -m pip install --no-cache-dir nvidia-ml-py3
 
 # Install collabllm
-uv pip install --no-cache-dir ..
-uv pip install --no-cache-dir hf_transfer
+python -m pip install --no-cache-dir ..
+python -m pip install --no-cache-dir hf_transfer
 
 # Install DeepSpeed
-uv pip install --no-cache-dir deepspeed
+python -m pip install --no-cache-dir deepspeed
 
 # --- Set OpenAI key as env var (dummy; replace later) ---
 export OPENAI_API_KEY="${OPENAI_KEY}"

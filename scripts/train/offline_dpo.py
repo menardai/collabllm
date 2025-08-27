@@ -251,8 +251,31 @@ def main() -> None:
         assert row["prompt"] + row["chosen"] == reference
         return row
 
-    ds["train"] = ds["train"].map(process, load_from_cache_file=False)
-    ds["eval"] = ds["eval"].map(process, load_from_cache_file=False)
+    def process_non_llama(row):
+        messages = row["prompt"]
+        prompt_str = tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+
+        chosen_body = row["chosen"].strip()
+        rejected_body = row["rejected"].strip()
+
+        ref_chosen = tok.apply_chat_template(messages + [{'role': 'assistant', 'content': chosen_body}], tokenize=False)
+        ref_rejected = tok.apply_chat_template(messages + [{'role': 'assistant', 'content': rejected_body}], tokenize=False)
+
+        row["prompt"] = prompt_str
+        row["chosen"] = ref_chosen[len(prompt_str):]
+        row["rejected"] = ref_rejected[len(prompt_str):]
+
+        assert row["prompt"] + row["chosen"] == ref_chosen
+        return row
+
+    if args.model_name.startswith("meta-llama/"):
+        ds["train"] = ds["train"].map(process, load_from_cache_file=False)
+        ds["eval"] = ds["eval"].map(process, load_from_cache_file=False)
+    else:
+        print("NON-Llama model detected, using custom processing")
+        ds["train"] = ds["train"].map(process_non_llama, load_from_cache_file=False)
+        ds["eval"] = ds["eval"].map(process_non_llama, load_from_cache_file=False)
+        print("Custom processing complete")
 
     trainer = DPOTrainer(
         model=model,

@@ -49,7 +49,6 @@ from transformers import (
     AutoTokenizer,
     BitsAndBytesConfig,
 )
-import torch.distributed as dist
 from peft import PeftConfig, PeftModel, LoraConfig, get_peft_model
 from collabllm.datasets.multiturn import MultiturnDataset
 from trl import DPOConfig, DPOTrainer
@@ -79,9 +78,9 @@ def parse_args() -> argparse.Namespace:
     # Optim & schedule
     p.add_argument("--learning_rate", type=float, default=1e-5)
     p.add_argument("--num_train_epochs", type=int, default=1)
-    p.add_argument("--per_device_train_batch_size", type=int, default=4)
-    p.add_argument("--per_device_eval_batch_size", type=int, default=4)
-    p.add_argument("--gradient_accumulation_steps", type=int, default=4)
+    p.add_argument("--per_device_train_batch_size", type=int, default=1)
+    p.add_argument("--per_device_eval_batch_size", type=int, default=1)
+    p.add_argument("--gradient_accumulation_steps", type=int, default=8)
     p.add_argument("--eval_steps", type=int, default=500)
     p.add_argument("--save_total_limit", type=int, default=3)
     p.add_argument("--max_seq_length", type=int, default=4096)
@@ -93,8 +92,8 @@ def parse_args() -> argparse.Namespace:
 
     # Precision / hardware
     p.add_argument("--device", type=str, default="cuda")
-    p.add_argument("--use_lora", action="store_true", default=False)
-    p.add_argument("--use_4bit", action="store_true", default=False)
+    p.add_argument("--use_lora", action="store_true", default=True)
+    p.add_argument("--use_4bit", action="store_true", default=True)
 
     # Tracking
     p.add_argument("--wandb_project", type=str)
@@ -128,18 +127,20 @@ def load_model_and_tokenizer(
         pc = PeftConfig.from_pretrained(model_name)
         base = AutoModelForCausalLM.from_pretrained(
             pc.base_model_name_or_path,
-            device_map={"": device},
+            device_map="auto",
             quantization_config=bnb_cfg,
             trust_remote_code=True,
+            low_cpu_mem_usage=True,
         )
         model = PeftModel.from_pretrained(base, model_name, is_trainable=not is_eval)
         tok = AutoTokenizer.from_pretrained(pc.base_model_name_or_path, trust_remote_code=True)
     except Exception:
         model = AutoModelForCausalLM.from_pretrained(
             model_name,
-            device_map={"": device},
+            device_map="auto",
             quantization_config=bnb_cfg,
             trust_remote_code=True,
+            low_cpu_mem_usage=True,
         )
         tok = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
         if lora_cfg:
@@ -149,8 +150,12 @@ def load_model_and_tokenizer(
     trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
     total     = sum(p.numel() for p in model.parameters())
     print(f"Trainable params: {trainable:,}/{total:,} ({trainable/total:.2%})")
-    
-    print(model.device)
+    # Required when using gradient checkpointing
+    if hasattr(model, "config"):
+        try:
+            model.config.use_cache = False
+        except Exception:
+            pass
     return model, tok
 
 # --------------------------------------------------------------------------- #
@@ -160,11 +165,6 @@ def main() -> None:
     args = parse_args()
     os.makedirs(args.output_dir, exist_ok=True)
 
-    local_rank = int(os.environ['LOCAL_RANK'])
-    dist.init_process_group(backend='nccl', init_method=None)
-    torch.cuda.set_device(local_rank)
-    dist.barrier()
-
     # Dataset
     ds = MultiturnDataset(args.dataset_repo).to_dpo_dataset(eval_ratio=args.eval_ratio, minimum_gap=args.minimum_gap)
 
@@ -172,7 +172,7 @@ def main() -> None:
     bnb_cfg = BitsAndBytesConfig(
         load_in_4bit=args.use_4bit,
         bnb_4bit_quant_type="nf4",
-        bnb_4bit_use_double_quant=False,
+        bnb_4bit_use_double_quant=True,
         bnb_4bit_compute_dtype=torch.bfloat16,
     ) if args.use_4bit else None
 
@@ -194,23 +194,6 @@ def main() -> None:
         device=args.device,
         is_eval=False,
     )
-
-    # DeepSpeed zero
-    ds_cfg = {
-        "zero_optimization": {
-            "stage": 2,
-            "overlap_comm": True,
-            "reduce_bucket_size": "auto",
-            "contiguous_gradients": True,
-            "offload_optimizer": {"device": "none"},
-            "offload_param": {"device": "none"},
-        },
-        "gradient_clipping": "auto",
-        "train_batch_size": "auto",
-        "train_micro_batch_size_per_gpu": args.per_device_train_batch_size,
-        "gradient_accumulation_steps": args.gradient_accumulation_steps,
-        "steps_per_print": 200,
-    }
 
     # Trainer config
     train_args = DPOConfig(
@@ -235,10 +218,10 @@ def main() -> None:
         max_length=args.max_new_tokens, 
         max_prompt_length=args.max_prompt_length, 
         per_device_train_batch_size=args.per_device_train_batch_size,
+        per_device_eval_batch_size=args.per_device_eval_batch_size,
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         run_name=args.output_dir,
         output_dir=args.output_dir,
-        deepspeed=ds_cfg, 
         fp16=not torch.cuda.is_bf16_supported(), 
         bf16=torch.cuda.is_bf16_supported(),
 
@@ -250,7 +233,7 @@ def main() -> None:
     )
 
     # W&B
-    if args.wandb_project and os.environ.get("LOCAL_RANK", "0") == "0":
+    if args.wandb_project and os.environ.get("RANK", "0") == "0":
         wandb.init(
             project=args.wandb_project,
             entity=args.wandb_entity,

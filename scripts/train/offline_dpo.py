@@ -253,13 +253,13 @@ def main() -> None:
 
     def process_non_llama(row):
         messages = row["prompt"]
-        prompt_str = tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        prompt_str = tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=False)
 
         chosen_body = row["chosen"].strip()
         rejected_body = row["rejected"].strip()
 
-        ref_chosen = tok.apply_chat_template(messages + [{'role': 'assistant', 'content': chosen_body}], tokenize=False)
-        ref_rejected = tok.apply_chat_template(messages + [{'role': 'assistant', 'content': rejected_body}], tokenize=False)
+        ref_chosen = tok.apply_chat_template(messages + [{'role': 'assistant', 'content': chosen_body}], tokenize=False, enable_thinking=False)
+        ref_rejected = tok.apply_chat_template(messages + [{'role': 'assistant', 'content': rejected_body}], tokenize=False, enable_thinking=False)
 
         row["prompt"] = prompt_str
         row["chosen"] = ref_chosen[len(prompt_str):]

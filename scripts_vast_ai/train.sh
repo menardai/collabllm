@@ -20,5 +20,7 @@ CUDA_VISIBLE_DEVICES=0 WANDB__SERVICE_WAIT=300 torchrun --master_port=56500 --nn
     --logging_steps 1 \
     --wandb_entity stephanemenard211 \
     --wandb_project collabllm \
-    --use_lora
-    --use_4bit
+    --use_lora \
+    --use_4bit \
+    --max_prompt_length 2048 \
+    --max_new_tokens 1024

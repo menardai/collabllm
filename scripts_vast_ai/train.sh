@@ -1,7 +1,7 @@
 #! /bin/bash
 cd /data/collabllm
 export OPENAI_API_KEY=fake_key
-export WANDB_MODE=disabled
+export WANDB_MODE=enabled
 export HF_HOME="/data/.cache/huggingface"
 export TRANSFORMERS_CACHE="$HF_HOME/transformers"
 export HF_HUB_ENABLE_HF_TRANSFER=1
@@ -18,7 +18,7 @@ CUDA_VISIBLE_DEVICES=0 WANDB__SERVICE_WAIT=300 torchrun --master_port=56500 --nn
     --learning_rate 5e-6 \
     --eval_steps 10 \
     --logging_steps 1 \
-    --wandb_entity stephanemenard211 \
+    --wandb_entity stephanemenard211-qqm \
     --wandb_project collabllm \
     --use_lora \
     --use_4bit \

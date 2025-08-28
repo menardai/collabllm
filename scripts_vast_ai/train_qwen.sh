@@ -13,10 +13,10 @@ CUDA_VISIBLE_DEVICES=0 WANDB__SERVICE_WAIT=300 torchrun --master_port=56500 --nn
     --per_device_train_batch_size 1 \
     --per_device_eval_batch_size 1 \
     --gradient_accumulation_steps 8 \
-    --save_total_limit 10 \
+    --save_total_limit 1 \
     --num_train_epochs 8 \
     --learning_rate 5e-6 \
-    --eval_steps 10 \
+    --eval_steps 25 \
     --logging_steps 1 \
     --wandb_entity stephanemenard211-qqm \
     --wandb_project collabllm \

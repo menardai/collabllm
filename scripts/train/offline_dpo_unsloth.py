@@ -145,6 +145,7 @@ def load_model_and_tokenizer(
             model_name,
             dtype = None,
             load_in_4bit = True,
+            max_seq_length = max_seq_length,
         )
         # tok = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
         model = FastLanguageModel.get_peft_model(
@@ -299,7 +300,7 @@ def main() -> None:
         train_dataset=ds["train"],
         eval_dataset=ds["eval"],
         processing_class=tok,
-        peft_config=lora_cfg,
+        peft_config=None,  # Disable peft_config since we already applied LoRA via FastLanguageModel
         args=train_args,
     )
     trainer.train(resume_from_checkpoint=args.resume_ckpt_dir)

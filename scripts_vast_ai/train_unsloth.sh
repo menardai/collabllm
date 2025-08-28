@@ -8,9 +8,9 @@ CUDA_VISIBLE_DEVICES=0 WANDB__SERVICE_WAIT=300 torchrun --master_port=56500 --nn
     --dataset_repo collabllm/collabllm-multiturn-medium \
     --model_name meta-llama/Llama-3.2-3B-Instruct \
     --output_dir outputs/offline_dpo_from_base/collabllm-multiturn-medium \
-    --per_device_train_batch_size 1 \
+    --per_device_train_batch_size 4 \
     --per_device_eval_batch_size 1 \
-    --gradient_accumulation_steps 8 \
+    --gradient_accumulation_steps 4 \
     --save_total_limit 1 \
     --num_train_epochs 8 \
     --learning_rate 5e-6 \

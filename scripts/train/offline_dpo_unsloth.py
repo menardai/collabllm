@@ -236,12 +236,13 @@ def main() -> None:
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         run_name=args.output_dir,
         output_dir=args.output_dir,
-        # gradient_checkpointing=True,  
-        # gradient_checkpointing_kwargs={'use_reentrant': False},
-        # precompute_ref_log_probs=True,
+        
+        gradient_checkpointing=True,  
+        gradient_checkpointing_kwargs={'use_reentrant': False},
+        precompute_ref_log_probs=True,
         # Disable length-based grouping since our dataset items are not tokenized
         # and thus do not contain 'input_ids' for automatic length inference.
-        # group_by_length=False,
+        group_by_length=False,
 
         optim="adamw_8bit",     # adamw_torch
         fp16 = not is_bfloat16_supported(),

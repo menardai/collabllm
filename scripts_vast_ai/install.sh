@@ -40,9 +40,7 @@ fi
 . "${VENV_DIR}/bin/activate"
 
 # --- Install packages ---
-# Bootstrap pip (uv venvs may not include pip by default)
-python -m ensurepip --upgrade || true
-python -m pip install --upgrade pip
+uv pip install --upgrade pip
 # Install required packages
 uv pip install --no-cache-dir nvidia-ml-py3
 

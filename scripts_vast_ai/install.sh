@@ -44,12 +44,15 @@ uv pip install --upgrade pip
 # Install required packages
 uv pip install --no-cache-dir nvidia-ml-py3
 
+# Install Unsloth
+uv pip install --no-cache-dir unsloth
+
 # Install collabllm
 uv pip install --no-cache-dir ..
 uv pip install --no-cache-dir hf_transfer
 
 # Install DeepSpeed
-uv pip install --no-cache-dir deepspeed
+#uv pip install --no-cache-dir deepspeed
 
 # --- Set OpenAI key as env var (dummy; replace later) ---
 export OPENAI_API_KEY="${OPENAI_KEY}"

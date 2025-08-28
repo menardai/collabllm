@@ -43,13 +43,19 @@ from __future__ import annotations
 import argparse, os, json
 from typing import Tuple, Optional
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "0" # Optional set GPU device ID
+
+from unsloth import FastLanguageModel, PatchDPOTrainer
+from unsloth import is_bfloat16_supported
+PatchDPOTrainer()   # *** Unsloth ***
+
 import torch
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
     BitsAndBytesConfig,
 )
-from peft import PeftConfig, PeftModel, LoraConfig, get_peft_model
+from peft import PeftConfig, PeftModel, LoraConfig
 from collabllm.datasets.multiturn import MultiturnDataset
 from trl import DPOConfig, DPOTrainer
 import wandb
@@ -121,30 +127,39 @@ def load_model_and_tokenizer(
     bnb_cfg: Optional[BitsAndBytesConfig],
     lora_cfg: Optional[LoraConfig],
     device: str = "cuda",
+    max_seq_length: int = 4096,
     is_eval: bool = False,
 ) -> Tuple[torch.nn.Module, AutoTokenizer]:
     try:
         pc = PeftConfig.from_pretrained(model_name)
-        base = AutoModelForCausalLM.from_pretrained(
+        base, tok = FastLanguageModel.from_pretrained(
             pc.base_model_name_or_path,
-            device_map="auto",
-            quantization_config=bnb_cfg,
-            trust_remote_code=True,
-            low_cpu_mem_usage=True,
+            max_seq_length = max_seq_length,
+            dtype = None,
+            load_in_4bit = True,
         )
         model = PeftModel.from_pretrained(base, model_name, is_trainable=not is_eval)
-        tok = AutoTokenizer.from_pretrained(pc.base_model_name_or_path, trust_remote_code=True)
+        # tok = AutoTokenizer.from_pretrained(pc.base_model_name_or_path, trust_remote_code=True)
     except Exception:
-        model = AutoModelForCausalLM.from_pretrained(
+        model, tok = FastLanguageModel.from_pretrained(
             model_name,
-            device_map="auto",
-            quantization_config=bnb_cfg,
-            trust_remote_code=True,
-            low_cpu_mem_usage=True,
+            dtype = None,
+            load_in_4bit = True,
         )
-        tok = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
-        if lora_cfg:
-            model = get_peft_model(model, lora_cfg)
+        # tok = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+        model = FastLanguageModel.get_peft_model(
+            model,
+            r = 64,
+            target_modules = ["q_proj", "k_proj", "v_proj", "o_proj",
+                            "gate_proj", "up_proj", "down_proj",],
+            lora_alpha = 64,
+            lora_dropout = 0, # Supports any, but = 0 is optimized
+            bias = "none",    # Supports any, but = "none" is optimized
+            # [NEW] "unsloth" uses 30% less VRAM, fits 2x larger batch sizes!
+            use_gradient_checkpointing = "unsloth", # True or "unsloth" for very long context
+            random_state = 3407,
+            max_seq_length = max_seq_length,
+        )
 
     tok.padding_side, tok.pad_token = ("left" if is_eval else "right"), tok.eos_token
     trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -192,6 +207,7 @@ def main() -> None:
         bnb_cfg=bnb_cfg,
         lora_cfg=lora_cfg,
         device=args.device,
+        max_seq_length=args.max_prompt_length,
         is_eval=False,
     )
 
@@ -200,13 +216,11 @@ def main() -> None:
         beta=0.1,
         loss_type="sigmoid",
         max_grad_norm=1.0,
-        optim="adamw_torch",
         report_to="wandb",
         do_eval=True,
         eval_steps=args.eval_steps, 
         save_strategy='epoch',
         eval_strategy="steps",
-        gradient_checkpointing=True,  
         lr_scheduler_type="cosine",
         metric_for_best_model="eval_loss",
         warmup_ratio=args.warmup_ratio,
@@ -214,7 +228,6 @@ def main() -> None:
         logging_steps=args.logging_steps,
         num_train_epochs=args.num_train_epochs,
         save_total_limit=args.save_total_limit,
-        gradient_checkpointing_kwargs={'use_reentrant': False},
         max_length=args.max_new_tokens, 
         max_prompt_length=args.max_prompt_length, 
         per_device_train_batch_size=args.per_device_train_batch_size,
@@ -222,14 +235,16 @@ def main() -> None:
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         run_name=args.output_dir,
         output_dir=args.output_dir,
-        fp16=not torch.cuda.is_bf16_supported(), 
-        bf16=torch.cuda.is_bf16_supported(),
-
-        precompute_ref_log_probs=True,
+        # gradient_checkpointing=True,  
+        # gradient_checkpointing_kwargs={'use_reentrant': False},
+        # precompute_ref_log_probs=True,
         # Disable length-based grouping since our dataset items are not tokenized
         # and thus do not contain 'input_ids' for automatic length inference.
-        group_by_length=False,
+        # group_by_length=False,
 
+        optim="adamw_8bit",     # adamw_torch
+        fp16 = not is_bfloat16_supported(),
+        bf16 = is_bfloat16_supported(),
     )
 
     # W&B
@@ -280,6 +295,7 @@ def main() -> None:
 
     trainer = DPOTrainer(
         model=model,
+        ref_model = None,   # unsloth
         train_dataset=ds["train"],
         eval_dataset=ds["eval"],
         processing_class=tok,

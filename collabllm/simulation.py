@@ -277,9 +277,11 @@ class ChatSessionSimulator:
         gen_kwargs.pop("model", None)  # not used for local generation
 
         with torch.no_grad():
+            # Disable KV cache to avoid Unsloth fast path crash on past_key_values
             output_ids = local_model.generate(
                 **inputs,
                 max_new_tokens=max_new,
+                use_cache=False,
                 **gen_kwargs,
             )
 

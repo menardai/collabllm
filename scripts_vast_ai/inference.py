@@ -3,7 +3,7 @@
 Inference script for CollabLLM finetuned models.
 Adapted from notebook_tutorials/inference_finetuned_model.ipynb
 
-pip install torch transformers peft accelerate safetensors
+pip install torch transformers peft accelerate safetensors bitsandbytes
 
 Example usage:
 python inference.py --lora_adapter_path ../checkpoints/llama-3b-checkpoint --task_desc "Recommend a movie." --prompt "Find a film suitable for a date night."

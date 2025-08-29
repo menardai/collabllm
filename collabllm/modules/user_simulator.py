@@ -43,6 +43,7 @@ class UserSimulator(object):
                     full_response = extract_json(full_response)
             except Exception as e:
                 logger.error(f"[UserSimulator] Error extracting JSON: {e}")
+                logger.error(f"[UserSimulator] reponse string that failed the extract JSON: {full_response}")
                 continue
 
             if isinstance(full_response, dict):

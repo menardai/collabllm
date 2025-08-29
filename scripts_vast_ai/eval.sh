@@ -12,4 +12,8 @@ CUDA_VISIBLE_DEVICES=0 WANDB__SERVICE_WAIT=300 torchrun --master_port=56500 --nn
     --user_generation_kwargs '{"model": "gpt-5-mini"}' \
     --assistant_generation_kwargs '{"model": "meta-llama/Llama-3.2-3B-Instruct", "temperature": 0.8}' \
     --eval_generation_kwargs '{"model": "gpt-5-mini"}' \
-    --eval_size 20
+    --eval_size 20 \
+    --use_lora \
+    --use_4bit \
+    --max_model_len 4096 \
+    --max_new_tokens 1024

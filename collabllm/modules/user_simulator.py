@@ -55,4 +55,5 @@ class UserSimulator(object):
                     logger.error(f"[UserSimulator] Keys {keys} do not match expected keys. Retrying...")
                     continue
         
+        logger.error(f"[UserSimulator] user: {response.strip()}")
         return response.strip()

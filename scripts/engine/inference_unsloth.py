@@ -107,6 +107,7 @@ def parse_args():
     p.add_argument("--user_generation_kwargs", type=json.loads, default={})
     p.add_argument("--assistant_generation_kwargs", type=json.loads, default={})
     p.add_argument("--gpu_memory_utilization", type=float, default=0.8)
+    p.add_argument("--use_vllm", action="store_true", default=False)
 
     p.add_argument("--use_lora", action="store_true", default=False)
     p.add_argument("--use_4bit", action="store_true", default=False)
@@ -122,7 +123,8 @@ def load_model_and_tokenizer(
     device: str = "cuda",
     is_eval: bool = False,
     gpu_memory_utilization: float = 0.8,
-    max_model_len: int = 8196
+    max_model_len: int = 8196,
+    use_vllm: bool = False
 ) -> Tuple[torch.nn.Module, AutoTokenizer]:
     try:
         # Try to load as a LoRA adapter first
@@ -172,23 +174,25 @@ def load_model_and_tokenizer(
     total     = sum(p.numel() for p in model.parameters())
     print(f"Trainable params: {trainable:,}/{total:,} ({trainable/total:.2%})")
 
-    try:
-        from vllm import LLM
+    vllm_base_model = None
+    if use_vllm:
+        try:
+            from vllm import LLM
 
-        vllm_base_model = LLM(
-            model=base_model_name,
-            dtype="bfloat16" if torch.cuda.is_bf16_supported() else "float16",
-            quantization="bitsandbytes" if bnb_cfg else None,
-            enable_lora=True if lora_cfg else False,
-            max_lora_rank=lora_cfg.r if lora_cfg else None,
-            # Use `distributed_executor_backend="external_launcher"` so that
-            # this llm engine/instance only creates one worker.
-            distributed_executor_backend="external_launcher",
-            gpu_memory_utilization=gpu_memory_utilization,
-            max_model_len=max_model_len
-        )
-    except ImportError:
-        vllm_base_model = None
+            vllm_base_model = LLM(
+                model=base_model_name,
+                dtype="bfloat16" if torch.cuda.is_bf16_supported() else "float16",
+                quantization="bitsandbytes" if bnb_cfg else None,
+                enable_lora=True if lora_cfg else False,
+                max_lora_rank=lora_cfg.r if lora_cfg else None,
+                # Use `distributed_executor_backend="external_launcher"` so that
+                # this llm engine/instance only creates one worker.
+                distributed_executor_backend="external_launcher",
+                gpu_memory_utilization=gpu_memory_utilization,
+                max_model_len=max_model_len
+            )
+        except ImportError:
+            vllm_base_model = None
     
     return model.eval(), tok, vllm_base_model
 
@@ -240,7 +244,8 @@ def main():
         lora_cfg=lora_cfg,
         bnb_cfg=bnb_cfg, # No quantization for eval
         is_eval=True,
-        max_model_len=args.max_model_len
+        max_model_len=args.max_model_len,
+        use_vllm=args.use_vllm
     )
 
     ensembled_kwargs = {

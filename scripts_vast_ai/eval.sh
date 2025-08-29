@@ -15,5 +15,6 @@ CUDA_VISIBLE_DEVICES=0 WANDB__SERVICE_WAIT=300 torchrun --master_port=56500 --nn
     --eval_size 20 \
     --use_lora \
     --use_4bit \
+    --gpu_memory_utilization 0.5 \
     --max_model_len 4096 \
     --max_new_tokens 1024

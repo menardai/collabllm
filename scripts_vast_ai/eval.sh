@@ -9,9 +9,9 @@ CUDA_VISIBLE_DEVICES=0 WANDB__SERVICE_WAIT=300 torchrun --master_port=56500 --nn
     --model_name meta-llama/Llama-3.2-3B-Instruct \
     --output_dir outputs/base/collabllm-multiturn-medium/inference-user-5mini \
     --eval_metric_names "document->bleu" "interactivity" "token_amount" \
-    --user_generation_kwargs '{"model": "gpt-5-mini"}' \
+    --user_generation_kwargs '{"model": "gpt-4o"}' \
     --assistant_generation_kwargs '{"model": "meta-llama/Llama-3.2-3B-Instruct", "temperature": 0.8}' \
-    --eval_generation_kwargs '{"model": "gpt-5-mini"}' \
+    --eval_generation_kwargs '{"model": "gpt-4o"}' \
     --eval_size 20 \
     --use_lora \
     --use_4bit \

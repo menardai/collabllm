@@ -161,8 +161,14 @@ def load_model_and_tokenizer(
             device_map={"": device},
         )
         
-        if lora_cfg:
+        # Only attach a fresh LoRA adapter if we are in training mode.
+        # During eval with a base model (no PEFT checkpoint path provided),
+        # ignore --use_lora to avoid randomly initialized adapters.
+        if lora_cfg and not is_eval:
             model = get_peft_model(model, lora_cfg)
+        elif lora_cfg and is_eval:
+            logger.warning("--use_lora was provided but no PEFT checkpoint was detected. "
+                           "Ignoring LoRA for evaluation and running the base model.")
         base_model_name = model_name
         print("Model loaded directly!")
 

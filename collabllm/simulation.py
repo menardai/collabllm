@@ -241,40 +241,62 @@ class ChatSessionSimulator:
         local_tokenizer,
         generation_kwargs: Dict[str, Any],
     ) -> List[str]:
-        """Batched HF generation (one forward pass)."""
+        """Batched HF generation using chat templates and model.generate."""
         torch.cuda.empty_cache()
+
+        # Ensure padding tokens are set for batching
         local_tokenizer.padding_side = "left"
-        local_tokenizer.pad_token = local_tokenizer.eos_token
+        if local_tokenizer.pad_token is None:
+            local_tokenizer.pad_token = local_tokenizer.eos_token
 
-        generator = pipeline(
-            "text-generation",
-            model=local_model,
-            tokenizer=local_tokenizer,
-            model_kwargs={"torch_dtype": "auto"},
-            device_map="auto",
-        )
-
-        generation_kwargs = copy.deepcopy(generation_kwargs)
-        max_new = generation_kwargs.pop("max_tokens", 1024)
-        generation_kwargs.pop("model", None)  # not needed for HF pipeline
-        prompts = [msgs for msgs in batch_messages]  # HF pipeline accepts list
-        outputs = generator(
-            prompts,
-            max_new_tokens=max_new,
-            **generation_kwargs,
-        )
-
-        # Extract only the newly generated part for each item
-        results = []
-        for prompt_msgs, out in zip(prompts, outputs):
-            if isinstance(out, list):
-                out = out[0]  # HF pipeline returns list of dicts
-            full_text = out["generated_text"]
-
-            if isinstance(prompt_msgs, str):
-                results.append(full_text[len(prompt_msgs) :])
+        # Prepare string prompts using the model's chat template when messages are provided
+        string_prompts: List[str] = []
+        for msgs in batch_messages:
+            if isinstance(msgs, list):
+                prompt = local_tokenizer.apply_chat_template(
+                    msgs,
+                    tokenize=False,
+                    add_generation_prompt=True,
+                )
             else:
-                results.append(full_text[-1]["content"])
+                prompt = str(msgs)
+            string_prompts.append(prompt)
+
+        # Tokenize as a batch
+        inputs = local_tokenizer(
+            string_prompts,
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
+        )
+        inputs = {k: v.to(next(local_model.parameters()).device) for k, v in inputs.items()}
+
+        # Map generation kwargs
+        gen_kwargs = copy.deepcopy(generation_kwargs)
+        max_new = gen_kwargs.pop("max_tokens", 1024)
+        gen_kwargs.pop("model", None)  # not used for local generation
+
+        with torch.no_grad():
+            output_ids = local_model.generate(
+                **inputs,
+                max_new_tokens=max_new,
+                **gen_kwargs,
+            )
+
+        # Slice off the prompt part per item and decode
+        input_lengths = inputs["input_ids"].shape[1]
+        # When padding to the left, prompts may have different lengths; slice per row
+        results: List[str] = []
+        for i, ids in enumerate(output_ids):
+            # Compute this row's prompt length from attention_mask
+            if "attention_mask" in inputs:
+                this_len = int(inputs["attention_mask"][i].sum().item())
+            else:
+                this_len = input_lengths
+            gen_part = ids[this_len:]
+            text = local_tokenizer.decode(gen_part, skip_special_tokens=True)
+            results.append(text)
+
         torch.cuda.empty_cache()
         return results
 
